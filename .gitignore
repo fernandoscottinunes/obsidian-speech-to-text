@@ -7,13 +7,13 @@ yarn-debug.log
 .pnp.js
 
 # Arquivos de build
-# /dist
+/dist
 /build
 /out
 /node_modules
-# package-lock.json
+package-lock.json
 # package.json
-# webpack.config.js
+webpack.config.js
 
 # Arquivos old
 old/

@@ -1,10 +1,10 @@
 {
-	"id": "obsidian-speech-to-text",
-	"name": "Speech to Text",
-	"version": "1.0.0",
-	"minAppVersion": "1.10.3",
-	"description": "Captura áudio de qualquer fonte e transcreve para a nota ativa.",
-	"author": "Fernando Scotti Nunes",
-	"authorUrl": "",
-	"isDesktopOnly": true
+  "id": "obsidian-speech-to-text",
+  "name": "Speech to Text",
+  "version": "1.0.0",
+  "minAppVersion": "1.10.3",
+  "description": "Capture audio from any source and transcribe into the active note.",
+  "author": "Fernando Scotti Nunes",
+  "authorUrl": "",
+  "isDesktopOnly": true
 }
