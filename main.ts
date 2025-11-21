@@ -34,7 +34,7 @@ export default class SpeechToTextPlugin extends Plugin {
     samplesCollected = 0;
     targetSampleRate = 16000;
     pendingControllers: AbortController[] = [];
-    settings: STTSettings;
+    settings!: STTSettings;
 
     async onload() {
         this.settings = await this.loadSettings();
