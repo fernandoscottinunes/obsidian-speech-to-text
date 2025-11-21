@@ -1,4 +1,4 @@
-# Obsidian Speech to Text
+# Speech to Text
 
 Capture audio (window/screen or microphone), send WAV chunks to an HTTP STT endpoint, and insert the returned text into the active note.
 
@@ -38,7 +38,7 @@ Capture audio (window/screen or microphone), send WAV chunks to an HTTP STT endp
 - Create a tag/release (e.g., `v1.0.0`) on GitHub containing the bundle.
 - In your fork of `obsidianmd/obsidian-releases`, append to `community-plugins.json`:
   ```json
-  { "id": "obsidian-speech-to-text", "name": "Speech to Text", "author": "Fernando Scotti Nunes", "repo": "<user>/<repo>" }
+  { "id": "speech-to-text", "name": "Speech to Text", "author": "Fernando Scotti Nunes", "description": "Capture audio from any source and transcribe into the active note.", "repo": "fernandoscottinunes/obsidian-speech-to-text" }
   ```
 - Open the PR with a link to the release/tag and a brief description of the plugin and STT settings.
 

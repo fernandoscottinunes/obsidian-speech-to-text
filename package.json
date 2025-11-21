@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-speech-to-text",
+  "name": "speech-to-text",
   "version": "1.0.0",
   "description": "Capture audio from any source and transcribe into the active note.",
   "main": "main.js",
