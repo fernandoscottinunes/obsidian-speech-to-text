@@ -43,6 +43,9 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.sampleBuffers = [];
     this.samplesCollected = 0;
     this.targetSampleRate = 16e3;
+    this.maxBufferedChunks = 12;
+    this.maxConsecutiveWordRepeats = 2;
+    this.lastTranscriptTail = "";
     // Small noise gate to avoid sending pure silence to the STT backend
     this.silenceRmsThreshold = 15e-4;
     this.pendingControllers = [];
@@ -50,6 +53,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
   async onload() {
     var _a;
     this.settings = await this.loadSettings();
+    this.applyTuningSettings();
     this.addSettingTab(new STTSettingTab(this.app, this));
     this.injectStyles();
     this.statusBarItem = this.addStatusBarItem();
@@ -84,6 +88,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       return;
     new import_obsidian.Notice(`Iniciando transcri\xE7\xE3o da fonte: ${source.name}`);
     this.isTranscribing = true;
+    this.lastTranscriptTail = "";
     try {
       let stream;
       if (source.id.startsWith("window:") || source.id.startsWith("screen:")) {
@@ -145,6 +150,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.markRecording(false);
     this.sampleBuffers = [];
     this.samplesCollected = 0;
+    this.lastTranscriptTail = "";
     this.pendingControllers.forEach((controller) => controller.abort());
     this.pendingControllers = [];
     this.isTranscribing = false;
@@ -173,6 +179,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       clone.set(channelData);
       this.sampleBuffers.push(clone);
       this.samplesCollected += clone.length;
+      this.trimBacklog(samplesPerChunk);
       while (this.samplesCollected >= samplesPerChunk) {
         const chunkSamples = this.takeSamples(samplesPerChunk);
         if (this.isMostlySilence(chunkSamples)) {
@@ -184,12 +191,25 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
           const editor = editorGetter();
           if (!transcript || !editor)
             continue;
+          let insertText = this.cleanTranscript(transcript, this.lastTranscriptTail);
+          if (!insertText)
+            continue;
           if (baseOffset === null) {
             baseOffset = editor.posToOffset(editor.getCursor());
           }
+          if (baseOffset > 0 && insertText && !/^\s/.test(insertText)) {
+            const prevChar = editor.getRange(
+              editor.offsetToPos(baseOffset - 1),
+              editor.offsetToPos(baseOffset)
+            );
+            if (prevChar && !/\s/.test(prevChar)) {
+              insertText = " " + insertText;
+            }
+          }
           const insertPos = editor.offsetToPos(baseOffset);
-          editor.replaceRange(transcript, insertPos);
-          baseOffset += transcript.length;
+          editor.replaceRange(insertText, insertPos);
+          baseOffset += insertText.length;
+          this.lastTranscriptTail = this.updateTail(this.lastTranscriptTail, insertText);
           editor.setCursor(editor.offsetToPos(baseOffset));
         } catch (sendError) {
           console.error("Speech-to-Text: Erro ao enviar chunk PCM para STT:", sendError);
@@ -221,6 +241,31 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.samplesCollected -= count;
     return out;
   }
+  trimBacklog(samplesPerChunk) {
+    const maxSamples = samplesPerChunk * this.maxBufferedChunks;
+    if (this.samplesCollected <= maxSamples)
+      return;
+    const overflow = this.samplesCollected - maxSamples;
+    this.discardSamples(overflow);
+    console.warn(
+      "Speech-to-Text: Buffer overflow, descartando amostra antiga para manter performance:",
+      overflow
+    );
+  }
+  discardSamples(count) {
+    let remaining = count;
+    while (remaining > 0 && this.sampleBuffers.length > 0) {
+      const buffer = this.sampleBuffers[0];
+      if (buffer.length <= remaining) {
+        remaining -= buffer.length;
+        this.sampleBuffers.shift();
+      } else {
+        this.sampleBuffers[0] = buffer.subarray(remaining);
+        remaining = 0;
+      }
+    }
+    this.samplesCollected = Math.max(0, this.samplesCollected - count);
+  }
   isMostlySilence(samples) {
     if (samples.length === 0)
       return true;
@@ -234,6 +279,62 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     }
     const rms = Math.sqrt(sumSquares / samples.length);
     return rms < this.silenceRmsThreshold && peak < this.silenceRmsThreshold * 4;
+  }
+  cleanTranscript(incoming, previousTail) {
+    if (!incoming)
+      return incoming;
+    const normalizedIncoming = incoming.trimStart();
+    if (!previousTail) {
+      return this.dedupeConsecutiveWords(normalizedIncoming);
+    }
+    const prevWords = previousTail.trim().split(/\s+/);
+    const nextWords = normalizedIncoming.split(/\s+/);
+    const maxOverlap = Math.min(6, prevWords.length, nextWords.length);
+    for (let overlap = maxOverlap; overlap > 0; overlap--) {
+      const tailPhrase = prevWords.slice(-overlap).join(" ").toLowerCase();
+      const headPhrase = nextWords.slice(0, overlap).join(" ").toLowerCase();
+      if (tailPhrase === headPhrase) {
+        const remainder = nextWords.slice(overlap).join(" ");
+        return this.dedupeConsecutiveWords(remainder);
+      }
+    }
+    return this.dedupeConsecutiveWords(normalizedIncoming);
+  }
+  updateTail(previousTail, appended) {
+    const combined = previousTail + appended;
+    return combined.slice(-200);
+  }
+  applyTuningSettings() {
+    this.silenceRmsThreshold = Number.isFinite(this.settings.silenceThreshold) ? Math.max(0, this.settings.silenceThreshold) : 15e-4;
+    this.maxBufferedChunks = Number.isFinite(this.settings.maxBufferedChunks) && this.settings.maxBufferedChunks > 0 ? Math.round(this.settings.maxBufferedChunks) : 12;
+    this.maxConsecutiveWordRepeats = Number.isFinite(this.settings.maxConsecutiveWordRepeats) && this.settings.maxConsecutiveWordRepeats >= 1 ? Math.round(this.settings.maxConsecutiveWordRepeats) : 2;
+  }
+  dedupeConsecutiveWords(text) {
+    if (!text)
+      return text;
+    const tokens = text.split(/(\s+)/);
+    const output = [];
+    let lastWord = "";
+    let repeatCount = 0;
+    const normalize = (token) => token.toLowerCase().replace(/[^a-z0-9\u00c0-\u017f]+/gi, "");
+    for (const token of tokens) {
+      if (/^\s+$/.test(token)) {
+        output.push(token);
+        continue;
+      }
+      const normalized = normalize(token);
+      if (normalized && normalized === lastWord) {
+        repeatCount += 1;
+        if (repeatCount >= this.maxConsecutiveWordRepeats) {
+          continue;
+        }
+      } else {
+        lastWord = normalized;
+        repeatCount = 0;
+      }
+      output.push(token);
+    }
+    return output.join("").replace(/\s+/g, " ").trim();
   }
   encodeWav(samples, sampleRate) {
     const buffer = new ArrayBuffer(44 + samples.length * 2);
@@ -320,7 +421,10 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       language: "",
       fileField: "file",
       textField: "text",
-      chunkMs: 4e3
+      chunkMs: 4e3,
+      silenceThreshold: 15e-4,
+      maxBufferedChunks: 12,
+      maxConsecutiveWordRepeats: 2
     };
     const loaded = await this.loadData();
     return Object.assign({}, defaultSettings, loaded);
@@ -586,6 +690,7 @@ var STTSettingTab = class extends import_obsidian.PluginSettingTab {
       (text) => text.setPlaceholder("https://minha-api.stt/transcribe").setValue(this.plugin.settings.endpointUrl).onChange(async (value) => {
         this.plugin.settings.endpointUrl = value.trim();
         await this.plugin.saveSettings();
+        this.plugin.applyTuningSettings();
       })
     );
     new import_obsidian.Setting(containerEl).setName("API Key (opcional)").setDesc("Enviada como Authorization: Bearer <chave>.").addText(
@@ -624,11 +729,36 @@ var STTSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Dura\xE7\xE3o do chunk (ms)").setDesc("Tempo de corte; valores menores enviam mais requisi\xE7\xF5es.").addText(
+    new import_obsidian.Setting(containerEl).setName("Duracao do chunk (ms)").setDesc("Tempo de corte; valores menores enviam mais requisicoes. Padr\xE3o: 4000.").addText(
       (text) => text.setPlaceholder("4000").setValue(String(this.plugin.settings.chunkMs)).onChange(async (value) => {
         const num = Number(value);
         this.plugin.settings.chunkMs = Number.isFinite(num) && num > 500 ? num : 4e3;
         await this.plugin.saveSettings();
+        this.plugin.applyTuningSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Limite RMS de silencio").setDesc("Descarta chunks quase silenciosos; valores menores deixam passar mais ruido. Padr\xE3o: 0.0015.").addText(
+      (text) => text.setPlaceholder("0.0015").setValue(String(this.plugin.settings.silenceThreshold)).onChange(async (value) => {
+        const num = Number(value);
+        this.plugin.settings.silenceThreshold = Number.isFinite(num) && num >= 0 ? num : 15e-4;
+        await this.plugin.saveSettings();
+        this.plugin.applyTuningSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Buffers de audio em fila").setDesc("Limite de chunks aguardando envio antes de descartar o excesso (evita travar). Padr\xE3o: 12.").addText(
+      (text) => text.setPlaceholder("12").setValue(String(this.plugin.settings.maxBufferedChunks)).onChange(async (value) => {
+        const num = Number(value);
+        this.plugin.settings.maxBufferedChunks = Number.isFinite(num) && num > 0 ? Math.round(num) : 12;
+        await this.plugin.saveSettings();
+        this.plugin.applyTuningSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Repeticoes consecutivas permitidas").setDesc("Quantas vezes a mesma palavra pode se repetir em sequencia antes de ser filtrada. Padr\xE3o: 2.").addText(
+      (text) => text.setPlaceholder("2").setValue(String(this.plugin.settings.maxConsecutiveWordRepeats)).onChange(async (value) => {
+        const num = Number(value);
+        this.plugin.settings.maxConsecutiveWordRepeats = Number.isFinite(num) && num >= 1 ? Math.round(num) : 2;
+        await this.plugin.saveSettings();
+        this.plugin.applyTuningSettings();
       })
     );
   }

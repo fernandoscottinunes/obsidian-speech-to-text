@@ -19,6 +19,9 @@ interface STTSettings {
     fileField: string;
     textField: string;
     chunkMs: number;
+    silenceThreshold: number;
+    maxBufferedChunks: number;
+    maxConsecutiveWordRepeats: number;
 }
 
 export default class SpeechToTextPlugin extends Plugin {
@@ -33,6 +36,9 @@ export default class SpeechToTextPlugin extends Plugin {
     sampleBuffers: Float32Array[] = [];
     samplesCollected = 0;
     targetSampleRate = 16000;
+    maxBufferedChunks = 12;
+    maxConsecutiveWordRepeats = 2;
+    lastTranscriptTail = '';
     // Small noise gate to avoid sending pure silence to the STT backend
     silenceRmsThreshold = 0.0015;
     pendingControllers: AbortController[] = [];
@@ -40,6 +46,7 @@ export default class SpeechToTextPlugin extends Plugin {
 
     async onload() {
         this.settings = await this.loadSettings();
+        this.applyTuningSettings();
         this.addSettingTab(new STTSettingTab(this.app, this));
         this.injectStyles();
         this.statusBarItem = this.addStatusBarItem();
@@ -77,6 +84,7 @@ export default class SpeechToTextPlugin extends Plugin {
 
         new Notice(`Iniciando transcrição da fonte: ${source.name}`);
         this.isTranscribing = true;
+        this.lastTranscriptTail = '';
 
         try {
             let stream: MediaStream;
@@ -144,6 +152,7 @@ export default class SpeechToTextPlugin extends Plugin {
 
         this.sampleBuffers = [];
         this.samplesCollected = 0;
+        this.lastTranscriptTail = '';
 
         this.pendingControllers.forEach((controller) => controller.abort());
         this.pendingControllers = [];
@@ -179,6 +188,7 @@ export default class SpeechToTextPlugin extends Plugin {
 
             this.sampleBuffers.push(clone);
             this.samplesCollected += clone.length;
+            this.trimBacklog(samplesPerChunk);
 
             while (this.samplesCollected >= samplesPerChunk) {
                 const chunkSamples = this.takeSamples(samplesPerChunk);
@@ -192,14 +202,28 @@ export default class SpeechToTextPlugin extends Plugin {
                     const editor = editorGetter();
                     if (!transcript || !editor) continue;
 
+                    let insertText = this.cleanTranscript(transcript, this.lastTranscriptTail);
+                    if (!insertText) continue;
+
                     if (baseOffset === null) {
                         baseOffset = editor.posToOffset(editor.getCursor());
                     }
 
+                    if (baseOffset > 0 && insertText && !/^\s/.test(insertText)) {
+                        const prevChar = editor.getRange(
+                            editor.offsetToPos(baseOffset - 1),
+                            editor.offsetToPos(baseOffset)
+                        );
+                        if (prevChar && !/\s/.test(prevChar)) {
+                            insertText = ' ' + insertText;
+                        }
+                    }
+
                     const insertPos = editor.offsetToPos(baseOffset);
                     // Insert text at current base offset; avoid invalid ranges
-                    editor.replaceRange(transcript, insertPos);
-                    baseOffset += transcript.length;
+                    editor.replaceRange(insertText, insertPos);
+                    baseOffset += insertText.length;
+                    this.lastTranscriptTail = this.updateTail(this.lastTranscriptTail, insertText);
                     editor.setCursor(editor.offsetToPos(baseOffset));
                 } catch (sendError: any) {
                     console.error('Speech-to-Text: Erro ao enviar chunk PCM para STT:', sendError);
@@ -237,6 +261,33 @@ export default class SpeechToTextPlugin extends Plugin {
         return out;
     }
 
+    private trimBacklog(samplesPerChunk: number) {
+        const maxSamples = samplesPerChunk * this.maxBufferedChunks;
+        if (this.samplesCollected <= maxSamples) return;
+
+        const overflow = this.samplesCollected - maxSamples;
+        this.discardSamples(overflow);
+        console.warn(
+            'Speech-to-Text: Buffer overflow, descartando amostra antiga para manter performance:',
+            overflow
+        );
+    }
+
+    private discardSamples(count: number) {
+        let remaining = count;
+        while (remaining > 0 && this.sampleBuffers.length > 0) {
+            const buffer = this.sampleBuffers[0];
+            if (buffer.length <= remaining) {
+                remaining -= buffer.length;
+                this.sampleBuffers.shift();
+            } else {
+                this.sampleBuffers[0] = buffer.subarray(remaining);
+                remaining = 0;
+            }
+        }
+        this.samplesCollected = Math.max(0, this.samplesCollected - count);
+    }
+
     private isMostlySilence(samples: Float32Array): boolean {
         if (samples.length === 0) return true;
 
@@ -251,6 +302,82 @@ export default class SpeechToTextPlugin extends Plugin {
 
         const rms = Math.sqrt(sumSquares / samples.length);
         return rms < this.silenceRmsThreshold && peak < this.silenceRmsThreshold * 4;
+    }
+
+    private cleanTranscript(incoming: string, previousTail: string): string {
+        if (!incoming) return incoming;
+
+        const normalizedIncoming = incoming.trimStart();
+        if (!previousTail) {
+            return this.dedupeConsecutiveWords(normalizedIncoming);
+        }
+
+        const prevWords = previousTail.trim().split(/\s+/);
+        const nextWords = normalizedIncoming.split(/\s+/);
+        const maxOverlap = Math.min(6, prevWords.length, nextWords.length);
+
+        for (let overlap = maxOverlap; overlap > 0; overlap--) {
+            const tailPhrase = prevWords.slice(-overlap).join(' ').toLowerCase();
+            const headPhrase = nextWords.slice(0, overlap).join(' ').toLowerCase();
+            if (tailPhrase === headPhrase) {
+                const remainder = nextWords.slice(overlap).join(' ');
+                return this.dedupeConsecutiveWords(remainder);
+            }
+        }
+
+        return this.dedupeConsecutiveWords(normalizedIncoming);
+    }
+
+    private updateTail(previousTail: string, appended: string): string {
+        const combined = previousTail + appended;
+        return combined.slice(-200);
+    }
+
+    applyTuningSettings() {
+        this.silenceRmsThreshold = Number.isFinite(this.settings.silenceThreshold)
+            ? Math.max(0, this.settings.silenceThreshold)
+            : 0.0015;
+        this.maxBufferedChunks =
+            Number.isFinite(this.settings.maxBufferedChunks) && this.settings.maxBufferedChunks > 0
+                ? Math.round(this.settings.maxBufferedChunks)
+                : 12;
+        this.maxConsecutiveWordRepeats =
+            Number.isFinite(this.settings.maxConsecutiveWordRepeats) && this.settings.maxConsecutiveWordRepeats >= 1
+                ? Math.round(this.settings.maxConsecutiveWordRepeats)
+                : 2;
+    }
+
+    private dedupeConsecutiveWords(text: string): string {
+        if (!text) return text;
+
+        const tokens = text.split(/(\s+)/);
+        const output: string[] = [];
+        let lastWord = '';
+        let repeatCount = 0;
+
+        const normalize = (token: string) => token.toLowerCase().replace(/[^a-z0-9\u00c0-\u017f]+/gi, '');
+
+        for (const token of tokens) {
+            if (/^\s+$/.test(token)) {
+                output.push(token);
+                continue;
+            }
+
+            const normalized = normalize(token);
+            if (normalized && normalized === lastWord) {
+                repeatCount += 1;
+                if (repeatCount >= this.maxConsecutiveWordRepeats) {
+                    continue;
+                }
+            } else {
+                lastWord = normalized;
+                repeatCount = 0;
+            }
+
+            output.push(token);
+        }
+
+        return output.join('').replace(/\s+/g, ' ').trim();
     }
 
     private encodeWav(samples: Float32Array, sampleRate: number): Blob {
@@ -356,6 +483,9 @@ export default class SpeechToTextPlugin extends Plugin {
             fileField: 'file',
             textField: 'text',
             chunkMs: 4000,
+            silenceThreshold: 0.0015,
+            maxBufferedChunks: 12,
+            maxConsecutiveWordRepeats: 2,
         };
         const loaded = await this.loadData();
         return Object.assign({}, defaultSettings, loaded);
@@ -650,6 +780,7 @@ class STTSettingTab extends PluginSettingTab {
                     .onChange(async (value) => {
                         this.plugin.settings.endpointUrl = value.trim();
                         await this.plugin.saveSettings();
+                        this.plugin.applyTuningSettings();
                     })
             );
 
@@ -728,9 +859,10 @@ class STTSettingTab extends PluginSettingTab {
                     })
             );
 
+
         new Setting(containerEl)
-            .setName('Duração do chunk (ms)')
-            .setDesc('Tempo de corte; valores menores enviam mais requisições.')
+            .setName('Duracao do chunk (ms)')
+            .setDesc('Tempo de corte; valores menores enviam mais requisicoes. Padrão: 4000.')
             .addText((text) =>
                 text
                     .setPlaceholder('4000')
@@ -739,6 +871,52 @@ class STTSettingTab extends PluginSettingTab {
                         const num = Number(value);
                         this.plugin.settings.chunkMs = Number.isFinite(num) && num > 500 ? num : 4000;
                         await this.plugin.saveSettings();
+                        this.plugin.applyTuningSettings();
+                    })
+            );
+
+        new Setting(containerEl)
+            .setName('Limite RMS de silencio')
+            .setDesc('Descarta chunks quase silenciosos; valores menores deixam passar mais ruido. Padrão: 0.0015.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('0.0015')
+                    .setValue(String(this.plugin.settings.silenceThreshold))
+                    .onChange(async (value) => {
+                        const num = Number(value);
+                        this.plugin.settings.silenceThreshold = Number.isFinite(num) && num >= 0 ? num : 0.0015;
+                        await this.plugin.saveSettings();
+                        this.plugin.applyTuningSettings();
+                    })
+            );
+
+        new Setting(containerEl)
+            .setName('Buffers de audio em fila')
+            .setDesc('Limite de chunks aguardando envio antes de descartar o excesso (evita travar). Padrão: 12.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('12')
+                    .setValue(String(this.plugin.settings.maxBufferedChunks))
+                    .onChange(async (value) => {
+                        const num = Number(value);
+                        this.plugin.settings.maxBufferedChunks = Number.isFinite(num) && num > 0 ? Math.round(num) : 12;
+                        await this.plugin.saveSettings();
+                        this.plugin.applyTuningSettings();
+                    })
+            );
+
+        new Setting(containerEl)
+            .setName('Repeticoes consecutivas permitidas')
+            .setDesc('Quantas vezes a mesma palavra pode se repetir em sequencia antes de ser filtrada. Padrão: 2.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('2')
+                    .setValue(String(this.plugin.settings.maxConsecutiveWordRepeats))
+                    .onChange(async (value) => {
+                        const num = Number(value);
+                        this.plugin.settings.maxConsecutiveWordRepeats = Number.isFinite(num) && num >= 1 ? Math.round(num) : 2;
+                        await this.plugin.saveSettings();
+                        this.plugin.applyTuningSettings();
                     })
             );
     }
