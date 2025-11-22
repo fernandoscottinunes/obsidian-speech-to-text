@@ -22,7 +22,127 @@ interface STTSettings {
     silenceThreshold: number;
     maxBufferedChunks: number;
     maxConsecutiveWordRepeats: number;
+    uiLanguage: 'en' | 'pt' | 'system';
 }
+
+type UILang = 'en' | 'pt';
+
+const translations: Record<UILang, Record<string, string>> = {
+    en: {
+        ribbonStart: 'Start transcription',
+        ribbonStop: 'Stop transcription',
+        statusInactive: 'STT inactive',
+        statusRecording: '[REC] Recording',
+        statusRecordingWithSource: '[REC] Recording | Source: {source}',
+        tooltipStart: 'Start transcription',
+        tooltipStop: 'Stop transcription\n{statusLine}',
+        startNotice: 'Starting transcription from: {source}',
+        alreadyRunning: 'Transcription is already running.',
+        noTracks: 'No audio track found in the selected source.',
+        startError: 'Error accessing the audio source: {error}',
+        stopNotice: 'Transcription stopped.',
+        chunkError: 'Error transcribing chunk: {error}',
+        sendChunkError: 'Configure the STT endpoint in the plugin settings.',
+        modalTitle: 'Select Audio Source',
+        modalSourceLabel: 'Audio source',
+        modalStatusScanning: 'Scanning system...',
+        modalHelp: 'Choose a window/screen or microphone to capture audio.',
+        modalStartButton: 'Start Transcription',
+        modalDesktopModuleError: 'Error: Could not load module for screen capture.',
+        modalDesktopLog: 'Speech-to-Text: Populating audio sources...',
+        modalDesktopError: 'Error fetching desktop sources.',
+        modalDevicesError: 'Error fetching media devices.',
+        modalNoSources: 'No audio sources found. Check permissions.',
+        modalLoaded: 'Sources loaded',
+        sourcePrefixWindow: 'Window',
+        sourcePrefixScreen: 'Screen',
+        settingsTitle: 'Speech to Text Settings (external API)',
+        settingEndpointName: 'STT Endpoint (HTTP)',
+        settingEndpointDesc: 'URL that will receive audio and return text.',
+        settingApiKeyName: 'API Key (optional)',
+        settingApiKeyDesc: 'Sent as Authorization: Bearer <key>.',
+        settingModelName: 'Model (e.g.: whisper-large-v3)',
+        settingModelDesc: 'Some APIs require the model field in multipart body.',
+        settingLanguageName: 'Language (optional)',
+        settingLanguageDesc: 'language field for the backend (e.g.: pt, en).',
+        settingFormDataName: 'Send as multipart/form-data',
+        settingFormDataDesc: 'If off, sends binary blob with Content-Type audio/wav.',
+        settingFileFieldName: 'File field (form-data)',
+        settingFileFieldDesc: 'Multipart field name that receives the audio.',
+        settingTextFieldName: 'Text field in JSON response',
+        settingTextFieldDesc: 'Field name with the transcription (fallback to "transcript").',
+        settingChunkName: 'Chunk duration (ms)',
+        settingChunkDesc: 'Cut length; smaller values send more requests.',
+        settingSilenceName: 'Silence RMS threshold',
+        settingSilenceDesc: 'Drops near-silent chunks; lower values let more noise pass. Default: 0.0015.',
+        settingBufferName: 'Queued audio chunks',
+        settingBufferDesc: 'Max chunks waiting to send before discarding excess (avoids lag). Default: 12.',
+        settingRepeatsName: 'Allowed consecutive repeats',
+        settingRepeatsDesc: 'How many times the same word may repeat before being filtered. Default: 2.',
+        settingUiLanguageName: 'Plugin language',
+        settingUiLanguageDesc: 'UI language. System follows Obsidian language when supported.',
+        settingUiOptionSystem: 'System',
+        settingUiOptionEn: 'English (en-US)',
+        settingUiOptionPt: 'Portuguese (pt-BR)',
+    },
+    pt: {
+        ribbonStart: 'Iniciar transcri\u00e7\u00e3o',
+        ribbonStop: 'Parar transcri\u00e7\u00e3o',
+        statusInactive: 'STT inativo',
+        statusRecording: '[REC] Gravando',
+        statusRecordingWithSource: '[REC] Gravando | Fonte: {source}',
+        tooltipStart: 'Iniciar transcri\u00e7\u00e3o',
+        tooltipStop: 'Parar transcri\u00e7\u00e3o\n{statusLine}',
+        startNotice: 'Iniciando transcri\u00e7\u00e3o da fonte: {source}',
+        alreadyRunning: 'A transcri\u00e7\u00e3o j\u00e1 est\u00e1 em andamento.',
+        noTracks: 'Nenhuma trilha de \u00e1udio encontrada na fonte selecionada.',
+        startError: 'Erro ao acessar a fonte de \u00e1udio: {error}',
+        stopNotice: 'Transcri\u00e7\u00e3o interrompida.',
+        chunkError: 'Erro ao transcrever chunk: {error}',
+        sendChunkError: 'Configure o endpoint STT nas configura\u00e7\u00f5es do plugin.',
+        modalTitle: 'Selecione a Fonte de \u00c1udio',
+        modalSourceLabel: 'Fonte de \u00e1udio',
+        modalStatusScanning: 'Varredura do sistema...',
+        modalHelp: 'Escolha uma janela/tela ou microfone para capturar o \u00e1udio.',
+        modalStartButton: 'Iniciar Transcri\u00e7\u00e3o',
+        modalDesktopModuleError: 'Erro: N\u00e3o foi poss\u00edvel carregar o m\u00f3dulo para captura de tela.',
+        modalDesktopLog: 'Speech-to-Text: Populando fontes de \u00e1udio...',
+        modalDesktopError: 'Erro ao buscar fontes do desktop.',
+        modalDevicesError: 'Erro ao buscar dispositivos de m\u00eddia.',
+        modalNoSources: 'Nenhuma fonte de \u00e1udio encontrada. Verifique permiss\u00f5es.',
+        modalLoaded: 'Fontes carregadas',
+        sourcePrefixWindow: 'Janela',
+        sourcePrefixScreen: 'Tela',
+        settingsTitle: 'Configura\u00e7\u00f5es do Speech to Text (API externa)',
+        settingEndpointName: 'Endpoint STT (HTTP)',
+        settingEndpointDesc: 'URL que receber\u00e1 o \u00e1udio e retornar\u00e1 o texto.',
+        settingApiKeyName: 'API Key (opcional)',
+        settingApiKeyDesc: 'Enviada como Authorization: Bearer <chave>.',
+        settingModelName: 'Modelo (ex.: whisper-large-v3)',
+        settingModelDesc: 'Algumas APIs exigem o campo model no corpo multipart.',
+        settingLanguageName: 'Idioma (opcional)',
+        settingLanguageDesc: 'Campo language para o backend (ex.: pt, en).',
+        settingFormDataName: 'Enviar como multipart/form-data',
+        settingFormDataDesc: 'Se desativado, envia o blob bin\u00e1rio com Content-Type audio/wav.',
+        settingFileFieldName: 'Campo do arquivo (form-data)',
+        settingFileFieldDesc: 'Nome do campo multipart que receber\u00e1 o \u00e1udio.',
+        settingTextFieldName: 'Campo do texto na resposta JSON',
+        settingTextFieldDesc: 'Nome do campo com a transcri\u00e7\u00e3o (fallback para \"transcript\").',
+        settingChunkName: 'Dura\u00e7\u00e3o do chunk (ms)',
+        settingChunkDesc: 'Tempo de corte; valores menores enviam mais requisi\u00e7\u00f5es.',
+        settingSilenceName: 'Limite RMS de sil\u00eancio',
+        settingSilenceDesc: 'Descarta chunks quase silenciosos; valores menores deixam passar mais ru\u00eddo. Padr\u00e3o: 0.0015.',
+        settingBufferName: 'Buffers de \u00e1udio em fila',
+        settingBufferDesc: 'Limite de chunks aguardando envio antes de descartar o excesso (evita travar). Padr\u00e3o: 12.',
+        settingRepeatsName: 'Repeti\u00e7\u00f5es consecutivas permitidas',
+        settingRepeatsDesc: 'Quantas vezes a mesma palavra pode se repetir em sequ\u00eancia antes de ser filtrada. Padr\u00e3o: 2.',
+        settingUiLanguageName: 'Idioma do plugin',
+        settingUiLanguageDesc: 'Idioma da interface. Sistema segue o idioma do Obsidian quando suportado.',
+        settingUiOptionSystem: 'Sistema',
+        settingUiOptionEn: 'Ingl\u00eas (en-US)',
+        settingUiOptionPt: 'Portugu\u00eas (pt-BR)',
+    },
+};
 
 export default class SpeechToTextPlugin extends Plugin {
     isTranscribing = false;
@@ -38,6 +158,7 @@ export default class SpeechToTextPlugin extends Plugin {
     targetSampleRate = 16000;
     maxBufferedChunks = 12;
     maxConsecutiveWordRepeats = 2;
+    currentLang: UILang = 'en';
     lastTranscriptTail = '';
     // Small noise gate to avoid sending pure silence to the STT backend
     silenceRmsThreshold = 0.0015;
@@ -50,39 +171,40 @@ export default class SpeechToTextPlugin extends Plugin {
         this.addSettingTab(new STTSettingTab(this.app, this));
         this.injectStyles();
         this.statusBarItem = this.addStatusBarItem();
-        this.updateStatusBar('STT inativo');
+        this.updateStatusBar(this.t('statusInactive'));
 
-        this.ribbonIconEl = this.addRibbonIcon('mic', 'Iniciar transcrição', () => {
+        this.ribbonIconEl = this.addRibbonIcon('mic', this.t('ribbonStart'), () => {
             if (this.isTranscribing) {
                 this.stopTranscription();
                 return;
             }
-            new AudioSourceSelectorModal(this.app, (source) => {
+            new AudioSourceSelectorModal(this.app, this, (source) => {
                 this.startTranscription(source);
             }).open();
         });
         this.ribbonIconEl?.addClass('stt-ribbon-icon');
-        this.setRibbonTooltip('Iniciar transcrição');
+        this.setRibbonTooltip(this.t('tooltipStart'));
 
         this.addCommand({
             id: 'start-transcription',
-            name: 'Iniciar transcrição',
+            name: this.t('ribbonStart'),
             callback: () => {
                 if (this.isTranscribing) {
-                    new Notice('A transcrição já está em andamento.');
+                    new Notice(this.t('alreadyRunning'));
                     return;
                 }
-                new AudioSourceSelectorModal(this.app, (source) => {
+                new AudioSourceSelectorModal(this.app, this, (source) => {
                     this.startTranscription(source);
                 }).open();
             },
         });
+        this.applyLanguage();
     }
 
     async startTranscription(source: AudioSource) {
         if (this.isTranscribing) return;
 
-        new Notice(`Iniciando transcrição da fonte: ${source.name}`);
+        new Notice(this.t('startNotice', { source: source.name }));
         this.isTranscribing = true;
         this.lastTranscriptTail = '';
 
@@ -113,7 +235,7 @@ export default class SpeechToTextPlugin extends Plugin {
 
             const audioTracks = stream.getAudioTracks();
             if (!audioTracks || audioTracks.length === 0) {
-                throw new Error('Nenhuma trilha de áudio encontrada na fonte selecionada.');
+                throw new Error(this.t('noTracks'));
             }
 
             this.currentStream = stream;
@@ -121,8 +243,8 @@ export default class SpeechToTextPlugin extends Plugin {
             this.markRecording(true);
             await this.startPCMRecorder(stream);
         } catch (error: any) {
-            console.error('Speech-to-Text: Falha ao iniciar transcrição:', error);
-            new Notice(`Erro ao acessar a fonte de áudio: ${error?.message || error}`);
+            console.error('Speech-to-Text: Failed to start transcription:', error);
+            new Notice(this.t('startError', { error: error?.message || String(error) }));
             this.stopTranscription();
         }
     }
@@ -227,7 +349,7 @@ export default class SpeechToTextPlugin extends Plugin {
                     editor.setCursor(editor.offsetToPos(baseOffset));
                 } catch (sendError: any) {
                     console.error('Speech-to-Text: Erro ao enviar chunk PCM para STT:', sendError);
-                    new Notice(`Erro ao transcrever chunk: ${sendError?.message || sendError}`);
+                    new Notice(this.t('chunkError', { error: sendError?.message || String(sendError) }));
                     this.stopTranscription();
                 }
             }
@@ -267,10 +389,7 @@ export default class SpeechToTextPlugin extends Plugin {
 
         const overflow = this.samplesCollected - maxSamples;
         this.discardSamples(overflow);
-        console.warn(
-            'Speech-to-Text: Buffer overflow, descartando amostra antiga para manter performance:',
-            overflow
-        );
+        console.warn('Speech-to-Text: Buffer overflow, discarding old samples to keep performance:', overflow);
     }
 
     private discardSamples(count: number) {
@@ -345,6 +464,39 @@ export default class SpeechToTextPlugin extends Plugin {
             Number.isFinite(this.settings.maxConsecutiveWordRepeats) && this.settings.maxConsecutiveWordRepeats >= 1
                 ? Math.round(this.settings.maxConsecutiveWordRepeats)
                 : 2;
+    }
+
+    private resolveLanguage(): UILang {
+        if (this.settings.uiLanguage === 'system') {
+            const obsLang =
+                (this.app.vault as any).getConfig?.('language') ??
+                (this.app.vault as any).getConfig?.('lang') ??
+                (this.app as any).app?.loadLocalStorage?.('language');
+            if (typeof obsLang === 'string' && obsLang.toLowerCase().startsWith('pt')) {
+                return 'pt';
+            }
+            return 'en';
+        }
+        return this.settings.uiLanguage === 'pt' ? 'pt' : 'en';
+    }
+
+    applyLanguage() {
+        this.currentLang = this.resolveLanguage();
+        if (this.isTranscribing) {
+            this.markRecording(true);
+        } else {
+            this.setRibbonTooltip(this.t('tooltipStart'));
+            this.updateStatusBar(this.t('statusInactive'));
+        }
+    }
+
+    t(key: string, vars: Record<string, string | number> = {}): string {
+        const dict = translations[this.currentLang] || translations.en;
+        const fallback = translations.en;
+        const template = dict[key] ?? fallback[key] ?? key;
+        return template.replace(/\{(\w+)\}/g, (match, k) =>
+            vars[k] !== undefined ? String(vars[k]) : match
+        );
     }
 
     private dedupeConsecutiveWords(text: string): string {
@@ -486,6 +638,7 @@ export default class SpeechToTextPlugin extends Plugin {
             silenceThreshold: 0.0015,
             maxBufferedChunks: 12,
             maxConsecutiveWordRepeats: 2,
+            uiLanguage: 'en',
         };
         const loaded = await this.loadData();
         return Object.assign({}, defaultSettings, loaded);
@@ -504,14 +657,16 @@ export default class SpeechToTextPlugin extends Plugin {
     private markRecording(active: boolean) {
         if (active) {
             this.ribbonIconEl?.addClass('stt-recording');
-            const source = this.activeSourceName ? ` | ${this.activeSourceName}` : '';
-            const tooltip = `Parar transcrição\n[REC] Gravando${source ? `\nFonte: ${this.activeSourceName}` : ''}`;
+            const status = this.activeSourceName
+                ? this.t('statusRecordingWithSource', { source: this.activeSourceName })
+                : this.t('statusRecording');
+            const tooltip = this.t('tooltipStop', { statusLine: status });
             this.setRibbonTooltip(tooltip);
-            this.updateStatusBar(`[REC] Gravando${source ? ` | Fonte: ${this.activeSourceName}` : ''}`);
+            this.updateStatusBar(status);
         } else {
             this.ribbonIconEl?.removeClass('stt-recording');
-            this.setRibbonTooltip('Iniciar transcrição');
-            this.updateStatusBar('STT inativo');
+            this.setRibbonTooltip(this.t('tooltipStart'));
+            this.updateStatusBar(this.t('statusInactive'));
         }
     }
 
@@ -611,33 +766,35 @@ class AudioSourceSelectorModal extends Modal {
     startButton: HTMLButtonElement | null = null;
     statusText: HTMLElement | null = null;
     sources: AudioSource[] = [];
+    plugin: SpeechToTextPlugin;
 
-    constructor(app: App, onSubmit: (source: AudioSource) => void) {
+    constructor(app: App, plugin: SpeechToTextPlugin, onSubmit: (source: AudioSource) => void) {
         super(app);
         this.onSubmit = onSubmit;
+        this.plugin = plugin;
     }
 
     async onOpen() {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('stt-source-modal');
-        contentEl.createEl('h2', { text: 'Selecione a Fonte de Áudio' });
+        contentEl.createEl('h2', { text: this.plugin.t('modalTitle') });
         contentEl.createDiv({ cls: 'stt-divider' });
 
         const field = contentEl.createDiv({ cls: 'stt-field' });
         const labelRow = field.createDiv({ cls: 'stt-label-row' });
-        labelRow.createEl('div', { text: 'Fonte de áudio', cls: 'stt-label' });
-        this.statusText = labelRow.createEl('div', { cls: 'stt-status', text: 'Varredura do sistema...' });
+        labelRow.createEl('div', { text: this.plugin.t('modalSourceLabel'), cls: 'stt-label' });
+        this.statusText = labelRow.createEl('div', { cls: 'stt-status', text: this.plugin.t('modalStatusScanning') });
 
         field.createEl('div', {
-            text: 'Escolha uma janela/tela ou microfone para capturar o áudio.',
+            text: this.plugin.t('modalHelp'),
             cls: 'stt-help',
         });
 
         this.selectEl = field.createEl('select', { cls: 'dropdown' });
 
         const actions = contentEl.createDiv({ cls: 'stt-actions' });
-        this.startButton = actions.createEl('button', { text: 'Iniciar Transcrição', cls: 'mod-cta' });
+        this.startButton = actions.createEl('button', { text: this.plugin.t('modalStartButton'), cls: 'mod-cta' });
 
         this.selectEl.disabled = true;
         this.startButton.disabled = true;
@@ -708,7 +865,7 @@ class AudioSourceSelectorModal extends Modal {
             });
 
             filteredSources.forEach((source) => {
-                const labelPrefix = source.id.startsWith('screen:') ? 'Tela' : 'Janela';
+                const labelPrefix = source.id.startsWith('screen:') ? this.plugin.t('sourcePrefixScreen') : this.plugin.t('sourcePrefixWindow');
                 audioSources.push({ id: source.id, name: `${labelPrefix}: ${source.name}` });
             });
 
@@ -719,7 +876,10 @@ class AudioSourceSelectorModal extends Modal {
                 sources.length
             );
         } catch (error) {
-            console.error('Speech-to-Text: Erro ao buscar fontes do desktop:', error);
+            console.error(this.plugin.t('modalDesktopError'), error);
+            this.statusText?.setText(this.plugin.t('modalDesktopError'));
+            this.statusText?.setText(this.plugin.t('modalDesktopError'));
+            this.statusText?.setText(this.plugin.t('modalDesktopError'));
         }
 
         try {
@@ -748,7 +908,7 @@ class AudioSourceSelectorModal extends Modal {
         if (this.startButton) {
             this.startButton.disabled = false;
         }
-        this.statusText?.setText('Fontes carregadas');
+        this.statusText?.setText(this.plugin.t('modalLoaded'));
     }
 
     onClose() {
@@ -768,28 +928,45 @@ class STTSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        containerEl.createEl('h2', { text: 'Configurações do Speech to Text (API externa)' });
+        const t = this.plugin.t.bind(this.plugin);
+        containerEl.createEl('h2', { text: t('settingsTitle') });
 
         new Setting(containerEl)
-            .setName('Endpoint STT (HTTP)')
-            .setDesc('URL que receberá o áudio e retornará o texto.')
-            .addText((text) =>
-                text
-                    .setPlaceholder('https://minha-api.stt/transcribe')
-                    .setValue(this.plugin.settings.endpointUrl)
+            .setName(t('settingUiLanguageName'))
+            .setDesc(t('settingUiLanguageDesc'))
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOption('system', t('settingUiOptionSystem'))
+                    .addOption('en', t('settingUiOptionEn'))
+                    .addOption('pt', t('settingUiOptionPt'))
+                    .setValue(this.plugin.settings.uiLanguage)
                     .onChange(async (value) => {
-                        this.plugin.settings.endpointUrl = value.trim();
+                        this.plugin.settings.uiLanguage =
+                            value === 'pt' || value === 'system' ? value : 'en';
                         await this.plugin.saveSettings();
-                        this.plugin.applyTuningSettings();
+                        this.plugin.applyLanguage();
                     })
             );
 
         new Setting(containerEl)
-            .setName('API Key (opcional)')
-            .setDesc('Enviada como Authorization: Bearer <chave>.')
+            .setName(t('settingEndpointName'))
+            .setDesc(t('settingEndpointDesc'))
             .addText((text) =>
                 text
-                    .setPlaceholder('chave-de-api')
+                    .setPlaceholder('https://my-api.stt/transcribe')
+                    .setValue(this.plugin.settings.endpointUrl)
+                    .onChange(async (value) => {
+                        this.plugin.settings.endpointUrl = value.trim();
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(containerEl)
+            .setName(t('settingApiKeyName'))
+            .setDesc(t('settingApiKeyDesc'))
+            .addText((text) =>
+                text
+                    .setPlaceholder('api-key')
                     .setValue(this.plugin.settings.apiKey)
                     .onChange(async (value) => {
                         this.plugin.settings.apiKey = value.trim();
@@ -798,8 +975,8 @@ class STTSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Modelo (ex.: whisper-large-v3)')
-            .setDesc('Algumas APIs exigem o campo model no corpo multipart.')
+            .setName(t('settingModelName'))
+            .setDesc(t('settingModelDesc'))
             .addText((text) =>
                 text
                     .setPlaceholder('whisper-large-v3')
@@ -811,8 +988,8 @@ class STTSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Idioma (opcional)')
-            .setDesc('Campo language para o backend (ex.: pt, en).')
+            .setName(t('settingLanguageName'))
+            .setDesc(t('settingLanguageDesc'))
             .addText((text) =>
                 text
                     .setPlaceholder('pt')
@@ -824,8 +1001,8 @@ class STTSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Enviar como multipart/form-data')
-            .setDesc('Se desativado, envia o blob binário com Content-Type audio/wav.')
+            .setName(t('settingFormDataName'))
+            .setDesc(t('settingFormDataDesc'))
             .addToggle((toggle) =>
                 toggle.setValue(this.plugin.settings.useFormData).onChange(async (value) => {
                     this.plugin.settings.useFormData = value;
@@ -834,8 +1011,8 @@ class STTSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Campo do arquivo (form-data)')
-            .setDesc('Nome do campo multipart que receberá o áudio.')
+            .setName(t('settingFileFieldName'))
+            .setDesc(t('settingFileFieldDesc'))
             .addText((text) =>
                 text
                     .setPlaceholder('file')
@@ -847,8 +1024,8 @@ class STTSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Campo do texto na resposta JSON')
-            .setDesc('Nome do campo com a transcrição (fallback para "transcript").')
+            .setName(t('settingTextFieldName'))
+            .setDesc(t('settingTextFieldDesc'))
             .addText((text) =>
                 text
                     .setPlaceholder('text')
@@ -859,10 +1036,9 @@ class STTSettingTab extends PluginSettingTab {
                     })
             );
 
-
         new Setting(containerEl)
-            .setName('Duracao do chunk (ms)')
-            .setDesc('Tempo de corte; valores menores enviam mais requisicoes. Padrão: 4000.')
+            .setName(t('settingChunkName'))
+            .setDesc(t('settingChunkDesc'))
             .addText((text) =>
                 text
                     .setPlaceholder('4000')
@@ -876,8 +1052,8 @@ class STTSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Limite RMS de silencio')
-            .setDesc('Descarta chunks quase silenciosos; valores menores deixam passar mais ruido. Padrão: 0.0015.')
+            .setName(t('settingSilenceName'))
+            .setDesc(t('settingSilenceDesc'))
             .addText((text) =>
                 text
                     .setPlaceholder('0.0015')
@@ -891,33 +1067,36 @@ class STTSettingTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName('Buffers de audio em fila')
-            .setDesc('Limite de chunks aguardando envio antes de descartar o excesso (evita travar). Padrão: 12.')
+            .setName(t('settingBufferName'))
+            .setDesc(t('settingBufferDesc'))
             .addText((text) =>
                 text
                     .setPlaceholder('12')
                     .setValue(String(this.plugin.settings.maxBufferedChunks))
                     .onChange(async (value) => {
                         const num = Number(value);
-                        this.plugin.settings.maxBufferedChunks = Number.isFinite(num) && num > 0 ? Math.round(num) : 12;
+                        this.plugin.settings.maxBufferedChunks =
+                            Number.isFinite(num) && num > 0 ? Math.round(num) : 12;
                         await this.plugin.saveSettings();
                         this.plugin.applyTuningSettings();
                     })
             );
 
         new Setting(containerEl)
-            .setName('Repeticoes consecutivas permitidas')
-            .setDesc('Quantas vezes a mesma palavra pode se repetir em sequencia antes de ser filtrada. Padrão: 2.')
+            .setName(t('settingRepeatsName'))
+            .setDesc(t('settingRepeatsDesc'))
             .addText((text) =>
                 text
                     .setPlaceholder('2')
                     .setValue(String(this.plugin.settings.maxConsecutiveWordRepeats))
                     .onChange(async (value) => {
                         const num = Number(value);
-                        this.plugin.settings.maxConsecutiveWordRepeats = Number.isFinite(num) && num >= 1 ? Math.round(num) : 2;
+                        this.plugin.settings.maxConsecutiveWordRepeats =
+                            Number.isFinite(num) && num >= 1 ? Math.round(num) : 2;
                         await this.plugin.saveSettings();
                         this.plugin.applyTuningSettings();
                     })
             );
     }
 }
+

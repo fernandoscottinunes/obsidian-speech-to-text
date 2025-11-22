@@ -29,6 +29,122 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
+var translations = {
+  en: {
+    ribbonStart: "Start transcription",
+    ribbonStop: "Stop transcription",
+    statusInactive: "STT inactive",
+    statusRecording: "[REC] Recording",
+    statusRecordingWithSource: "[REC] Recording | Source: {source}",
+    tooltipStart: "Start transcription",
+    tooltipStop: "Stop transcription\n{statusLine}",
+    startNotice: "Starting transcription from: {source}",
+    alreadyRunning: "Transcription is already running.",
+    noTracks: "No audio track found in the selected source.",
+    startError: "Error accessing the audio source: {error}",
+    stopNotice: "Transcription stopped.",
+    chunkError: "Error transcribing chunk: {error}",
+    sendChunkError: "Configure the STT endpoint in the plugin settings.",
+    modalTitle: "Select Audio Source",
+    modalSourceLabel: "Audio source",
+    modalStatusScanning: "Scanning system...",
+    modalHelp: "Choose a window/screen or microphone to capture audio.",
+    modalStartButton: "Start Transcription",
+    modalDesktopModuleError: "Error: Could not load module for screen capture.",
+    modalDesktopLog: "Speech-to-Text: Populating audio sources...",
+    modalDesktopError: "Error fetching desktop sources.",
+    modalDevicesError: "Error fetching media devices.",
+    modalNoSources: "No audio sources found. Check permissions.",
+    modalLoaded: "Sources loaded",
+    sourcePrefixWindow: "Window",
+    sourcePrefixScreen: "Screen",
+    settingsTitle: "Speech to Text Settings (external API)",
+    settingEndpointName: "STT Endpoint (HTTP)",
+    settingEndpointDesc: "URL that will receive audio and return text.",
+    settingApiKeyName: "API Key (optional)",
+    settingApiKeyDesc: "Sent as Authorization: Bearer <key>.",
+    settingModelName: "Model (e.g.: whisper-large-v3)",
+    settingModelDesc: "Some APIs require the model field in multipart body.",
+    settingLanguageName: "Language (optional)",
+    settingLanguageDesc: "language field for the backend (e.g.: pt, en).",
+    settingFormDataName: "Send as multipart/form-data",
+    settingFormDataDesc: "If off, sends binary blob with Content-Type audio/wav.",
+    settingFileFieldName: "File field (form-data)",
+    settingFileFieldDesc: "Multipart field name that receives the audio.",
+    settingTextFieldName: "Text field in JSON response",
+    settingTextFieldDesc: 'Field name with the transcription (fallback to "transcript").',
+    settingChunkName: "Chunk duration (ms)",
+    settingChunkDesc: "Cut length; smaller values send more requests.",
+    settingSilenceName: "Silence RMS threshold",
+    settingSilenceDesc: "Drops near-silent chunks; lower values let more noise pass. Default: 0.0015.",
+    settingBufferName: "Queued audio chunks",
+    settingBufferDesc: "Max chunks waiting to send before discarding excess (avoids lag). Default: 12.",
+    settingRepeatsName: "Allowed consecutive repeats",
+    settingRepeatsDesc: "How many times the same word may repeat before being filtered. Default: 2.",
+    settingUiLanguageName: "Plugin language",
+    settingUiLanguageDesc: "UI language. System follows Obsidian language when supported.",
+    settingUiOptionSystem: "System",
+    settingUiOptionEn: "English (en-US)",
+    settingUiOptionPt: "Portuguese (pt-BR)"
+  },
+  pt: {
+    ribbonStart: "Iniciar transcri\xE7\xE3o",
+    ribbonStop: "Parar transcri\xE7\xE3o",
+    statusInactive: "STT inativo",
+    statusRecording: "[REC] Gravando",
+    statusRecordingWithSource: "[REC] Gravando | Fonte: {source}",
+    tooltipStart: "Iniciar transcri\xE7\xE3o",
+    tooltipStop: "Parar transcri\xE7\xE3o\n{statusLine}",
+    startNotice: "Iniciando transcri\xE7\xE3o da fonte: {source}",
+    alreadyRunning: "A transcri\xE7\xE3o j\xE1 est\xE1 em andamento.",
+    noTracks: "Nenhuma trilha de \xE1udio encontrada na fonte selecionada.",
+    startError: "Erro ao acessar a fonte de \xE1udio: {error}",
+    stopNotice: "Transcri\xE7\xE3o interrompida.",
+    chunkError: "Erro ao transcrever chunk: {error}",
+    sendChunkError: "Configure o endpoint STT nas configura\xE7\xF5es do plugin.",
+    modalTitle: "Selecione a Fonte de \xC1udio",
+    modalSourceLabel: "Fonte de \xE1udio",
+    modalStatusScanning: "Varredura do sistema...",
+    modalHelp: "Escolha uma janela/tela ou microfone para capturar o \xE1udio.",
+    modalStartButton: "Iniciar Transcri\xE7\xE3o",
+    modalDesktopModuleError: "Erro: N\xE3o foi poss\xEDvel carregar o m\xF3dulo para captura de tela.",
+    modalDesktopLog: "Speech-to-Text: Populando fontes de \xE1udio...",
+    modalDesktopError: "Erro ao buscar fontes do desktop.",
+    modalDevicesError: "Erro ao buscar dispositivos de m\xEDdia.",
+    modalNoSources: "Nenhuma fonte de \xE1udio encontrada. Verifique permiss\xF5es.",
+    modalLoaded: "Fontes carregadas",
+    sourcePrefixWindow: "Janela",
+    sourcePrefixScreen: "Tela",
+    settingsTitle: "Configura\xE7\xF5es do Speech to Text (API externa)",
+    settingEndpointName: "Endpoint STT (HTTP)",
+    settingEndpointDesc: "URL que receber\xE1 o \xE1udio e retornar\xE1 o texto.",
+    settingApiKeyName: "API Key (opcional)",
+    settingApiKeyDesc: "Enviada como Authorization: Bearer <chave>.",
+    settingModelName: "Modelo (ex.: whisper-large-v3)",
+    settingModelDesc: "Algumas APIs exigem o campo model no corpo multipart.",
+    settingLanguageName: "Idioma (opcional)",
+    settingLanguageDesc: "Campo language para o backend (ex.: pt, en).",
+    settingFormDataName: "Enviar como multipart/form-data",
+    settingFormDataDesc: "Se desativado, envia o blob bin\xE1rio com Content-Type audio/wav.",
+    settingFileFieldName: "Campo do arquivo (form-data)",
+    settingFileFieldDesc: "Nome do campo multipart que receber\xE1 o \xE1udio.",
+    settingTextFieldName: "Campo do texto na resposta JSON",
+    settingTextFieldDesc: 'Nome do campo com a transcri\xE7\xE3o (fallback para "transcript").',
+    settingChunkName: "Dura\xE7\xE3o do chunk (ms)",
+    settingChunkDesc: "Tempo de corte; valores menores enviam mais requisi\xE7\xF5es.",
+    settingSilenceName: "Limite RMS de sil\xEAncio",
+    settingSilenceDesc: "Descarta chunks quase silenciosos; valores menores deixam passar mais ru\xEDdo. Padr\xE3o: 0.0015.",
+    settingBufferName: "Buffers de \xE1udio em fila",
+    settingBufferDesc: "Limite de chunks aguardando envio antes de descartar o excesso (evita travar). Padr\xE3o: 12.",
+    settingRepeatsName: "Repeti\xE7\xF5es consecutivas permitidas",
+    settingRepeatsDesc: "Quantas vezes a mesma palavra pode se repetir em sequ\xEAncia antes de ser filtrada. Padr\xE3o: 2.",
+    settingUiLanguageName: "Idioma do plugin",
+    settingUiLanguageDesc: "Idioma da interface. Sistema segue o idioma do Obsidian quando suportado.",
+    settingUiOptionSystem: "Sistema",
+    settingUiOptionEn: "Ingl\xEAs (en-US)",
+    settingUiOptionPt: "Portugu\xEAs (pt-BR)"
+  }
+};
 var SpeechToTextPlugin = class extends import_obsidian.Plugin {
   constructor() {
     super(...arguments);
@@ -45,6 +161,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.targetSampleRate = 16e3;
     this.maxBufferedChunks = 12;
     this.maxConsecutiveWordRepeats = 2;
+    this.currentLang = "en";
     this.lastTranscriptTail = "";
     // Small noise gate to avoid sending pure silence to the STT backend
     this.silenceRmsThreshold = 15e-4;
@@ -57,36 +174,37 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.addSettingTab(new STTSettingTab(this.app, this));
     this.injectStyles();
     this.statusBarItem = this.addStatusBarItem();
-    this.updateStatusBar("STT inativo");
-    this.ribbonIconEl = this.addRibbonIcon("mic", "Iniciar transcri\xE7\xE3o", () => {
+    this.updateStatusBar(this.t("statusInactive"));
+    this.ribbonIconEl = this.addRibbonIcon("mic", this.t("ribbonStart"), () => {
       if (this.isTranscribing) {
         this.stopTranscription();
         return;
       }
-      new AudioSourceSelectorModal(this.app, (source) => {
+      new AudioSourceSelectorModal(this.app, this, (source) => {
         this.startTranscription(source);
       }).open();
     });
     (_a = this.ribbonIconEl) == null ? void 0 : _a.addClass("stt-ribbon-icon");
-    this.setRibbonTooltip("Iniciar transcri\xE7\xE3o");
+    this.setRibbonTooltip(this.t("tooltipStart"));
     this.addCommand({
       id: "start-transcription",
-      name: "Iniciar transcri\xE7\xE3o",
+      name: this.t("ribbonStart"),
       callback: () => {
         if (this.isTranscribing) {
-          new import_obsidian.Notice("A transcri\xE7\xE3o j\xE1 est\xE1 em andamento.");
+          new import_obsidian.Notice(this.t("alreadyRunning"));
           return;
         }
-        new AudioSourceSelectorModal(this.app, (source) => {
+        new AudioSourceSelectorModal(this.app, this, (source) => {
           this.startTranscription(source);
         }).open();
       }
     });
+    this.applyLanguage();
   }
   async startTranscription(source) {
     if (this.isTranscribing)
       return;
-    new import_obsidian.Notice(`Iniciando transcri\xE7\xE3o da fonte: ${source.name}`);
+    new import_obsidian.Notice(this.t("startNotice", { source: source.name }));
     this.isTranscribing = true;
     this.lastTranscriptTail = "";
     try {
@@ -114,15 +232,15 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       }
       const audioTracks = stream.getAudioTracks();
       if (!audioTracks || audioTracks.length === 0) {
-        throw new Error("Nenhuma trilha de \xE1udio encontrada na fonte selecionada.");
+        throw new Error(this.t("noTracks"));
       }
       this.currentStream = stream;
       this.activeSourceName = source.name;
       this.markRecording(true);
       await this.startPCMRecorder(stream);
     } catch (error) {
-      console.error("Speech-to-Text: Falha ao iniciar transcri\xE7\xE3o:", error);
-      new import_obsidian.Notice(`Erro ao acessar a fonte de \xE1udio: ${(error == null ? void 0 : error.message) || error}`);
+      console.error("Speech-to-Text: Failed to start transcription:", error);
+      new import_obsidian.Notice(this.t("startError", { error: (error == null ? void 0 : error.message) || String(error) }));
       this.stopTranscription();
     }
   }
@@ -213,7 +331,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
           editor.setCursor(editor.offsetToPos(baseOffset));
         } catch (sendError) {
           console.error("Speech-to-Text: Erro ao enviar chunk PCM para STT:", sendError);
-          new import_obsidian.Notice(`Erro ao transcrever chunk: ${(sendError == null ? void 0 : sendError.message) || sendError}`);
+          new import_obsidian.Notice(this.t("chunkError", { error: (sendError == null ? void 0 : sendError.message) || String(sendError) }));
           this.stopTranscription();
         }
       }
@@ -247,10 +365,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       return;
     const overflow = this.samplesCollected - maxSamples;
     this.discardSamples(overflow);
-    console.warn(
-      "Speech-to-Text: Buffer overflow, descartando amostra antiga para manter performance:",
-      overflow
-    );
+    console.warn("Speech-to-Text: Buffer overflow, discarding old samples to keep performance:", overflow);
   }
   discardSamples(count) {
     let remaining = count;
@@ -308,6 +423,36 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.silenceRmsThreshold = Number.isFinite(this.settings.silenceThreshold) ? Math.max(0, this.settings.silenceThreshold) : 15e-4;
     this.maxBufferedChunks = Number.isFinite(this.settings.maxBufferedChunks) && this.settings.maxBufferedChunks > 0 ? Math.round(this.settings.maxBufferedChunks) : 12;
     this.maxConsecutiveWordRepeats = Number.isFinite(this.settings.maxConsecutiveWordRepeats) && this.settings.maxConsecutiveWordRepeats >= 1 ? Math.round(this.settings.maxConsecutiveWordRepeats) : 2;
+  }
+  resolveLanguage() {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    if (this.settings.uiLanguage === "system") {
+      const obsLang = (_h = (_e = (_b = (_a = this.app.vault).getConfig) == null ? void 0 : _b.call(_a, "language")) != null ? _e : (_d = (_c = this.app.vault).getConfig) == null ? void 0 : _d.call(_c, "lang")) != null ? _h : (_g = (_f = this.app.app) == null ? void 0 : _f.loadLocalStorage) == null ? void 0 : _g.call(_f, "language");
+      if (typeof obsLang === "string" && obsLang.toLowerCase().startsWith("pt")) {
+        return "pt";
+      }
+      return "en";
+    }
+    return this.settings.uiLanguage === "pt" ? "pt" : "en";
+  }
+  applyLanguage() {
+    this.currentLang = this.resolveLanguage();
+    if (this.isTranscribing) {
+      this.markRecording(true);
+    } else {
+      this.setRibbonTooltip(this.t("tooltipStart"));
+      this.updateStatusBar(this.t("statusInactive"));
+    }
+  }
+  t(key, vars = {}) {
+    var _a, _b;
+    const dict = translations[this.currentLang] || translations.en;
+    const fallback = translations.en;
+    const template = (_b = (_a = dict[key]) != null ? _a : fallback[key]) != null ? _b : key;
+    return template.replace(
+      /\{(\w+)\}/g,
+      (match, k) => vars[k] !== void 0 ? String(vars[k]) : match
+    );
   }
   dedupeConsecutiveWords(text) {
     if (!text)
@@ -424,7 +569,8 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       chunkMs: 4e3,
       silenceThreshold: 15e-4,
       maxBufferedChunks: 12,
-      maxConsecutiveWordRepeats: 2
+      maxConsecutiveWordRepeats: 2,
+      uiLanguage: "en"
     };
     const loaded = await this.loadData();
     return Object.assign({}, defaultSettings, loaded);
@@ -442,16 +588,14 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     var _a, _b;
     if (active) {
       (_a = this.ribbonIconEl) == null ? void 0 : _a.addClass("stt-recording");
-      const source = this.activeSourceName ? ` | ${this.activeSourceName}` : "";
-      const tooltip = `Parar transcri\xE7\xE3o
-[REC] Gravando${source ? `
-Fonte: ${this.activeSourceName}` : ""}`;
+      const status = this.activeSourceName ? this.t("statusRecordingWithSource", { source: this.activeSourceName }) : this.t("statusRecording");
+      const tooltip = this.t("tooltipStop", { statusLine: status });
       this.setRibbonTooltip(tooltip);
-      this.updateStatusBar(`[REC] Gravando${source ? ` | Fonte: ${this.activeSourceName}` : ""}`);
+      this.updateStatusBar(status);
     } else {
       (_b = this.ribbonIconEl) == null ? void 0 : _b.removeClass("stt-recording");
-      this.setRibbonTooltip("Iniciar transcri\xE7\xE3o");
-      this.updateStatusBar("STT inativo");
+      this.setRibbonTooltip(this.t("tooltipStart"));
+      this.updateStatusBar(this.t("statusInactive"));
     }
   }
   setRibbonTooltip(text) {
@@ -542,7 +686,7 @@ Fonte: ${this.activeSourceName}` : ""}`;
   }
 };
 var AudioSourceSelectorModal = class extends import_obsidian.Modal {
-  constructor(app, onSubmit) {
+  constructor(app, plugin, onSubmit) {
     super(app);
     this.isLoading = true;
     this.selectEl = null;
@@ -550,24 +694,25 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
     this.statusText = null;
     this.sources = [];
     this.onSubmit = onSubmit;
+    this.plugin = plugin;
   }
   async onOpen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("stt-source-modal");
-    contentEl.createEl("h2", { text: "Selecione a Fonte de \xC1udio" });
+    contentEl.createEl("h2", { text: this.plugin.t("modalTitle") });
     contentEl.createDiv({ cls: "stt-divider" });
     const field = contentEl.createDiv({ cls: "stt-field" });
     const labelRow = field.createDiv({ cls: "stt-label-row" });
-    labelRow.createEl("div", { text: "Fonte de \xE1udio", cls: "stt-label" });
-    this.statusText = labelRow.createEl("div", { cls: "stt-status", text: "Varredura do sistema..." });
+    labelRow.createEl("div", { text: this.plugin.t("modalSourceLabel"), cls: "stt-label" });
+    this.statusText = labelRow.createEl("div", { cls: "stt-status", text: this.plugin.t("modalStatusScanning") });
     field.createEl("div", {
-      text: "Escolha uma janela/tela ou microfone para capturar o \xE1udio.",
+      text: this.plugin.t("modalHelp"),
       cls: "stt-help"
     });
     this.selectEl = field.createEl("select", { cls: "dropdown" });
     const actions = contentEl.createDiv({ cls: "stt-actions" });
-    this.startButton = actions.createEl("button", { text: "Iniciar Transcri\xE7\xE3o", cls: "mod-cta" });
+    this.startButton = actions.createEl("button", { text: this.plugin.t("modalStartButton"), cls: "mod-cta" });
     this.selectEl.disabled = true;
     this.startButton.disabled = true;
     this.startButton.onclick = () => {
@@ -582,7 +727,7 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
     await this.populateSources();
   }
   async populateSources() {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e, _f;
     console.log("Speech-to-Text: Populando fontes de \xE1udio...");
     const electron = window.require("electron");
     const remote = electron.remote;
@@ -633,7 +778,7 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
         return looksAudioCapable(source.name);
       });
       filteredSources.forEach((source) => {
-        const labelPrefix = source.id.startsWith("screen:") ? "Tela" : "Janela";
+        const labelPrefix = source.id.startsWith("screen:") ? this.plugin.t("sourcePrefixScreen") : this.plugin.t("sourcePrefixWindow");
         audioSources.push({ id: source.id, name: `${labelPrefix}: ${source.name}` });
       });
       console.log(
@@ -643,7 +788,10 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
         sources.length
       );
     } catch (error) {
-      console.error("Speech-to-Text: Erro ao buscar fontes do desktop:", error);
+      console.error(this.plugin.t("modalDesktopError"), error);
+      (_b = this.statusText) == null ? void 0 : _b.setText(this.plugin.t("modalDesktopError"));
+      (_c = this.statusText) == null ? void 0 : _c.setText(this.plugin.t("modalDesktopError"));
+      (_d = this.statusText) == null ? void 0 : _d.setText(this.plugin.t("modalDesktopError"));
     }
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
@@ -656,7 +804,7 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
     }
     this.sources = audioSources;
     if (audioSources.length === 0) {
-      (_b = this.statusText) == null ? void 0 : _b.setText("Nenhuma fonte de \xE1udio encontrada. Verifique permiss\xF5es.");
+      (_e = this.statusText) == null ? void 0 : _e.setText("Nenhuma fonte de \xE1udio encontrada. Verifique permiss\xF5es.");
       return;
     }
     if (this.selectEl) {
@@ -670,7 +818,7 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
     if (this.startButton) {
       this.startButton.disabled = false;
     }
-    (_c = this.statusText) == null ? void 0 : _c.setText("Fontes carregadas");
+    (_f = this.statusText) == null ? void 0 : _f.setText(this.plugin.t("modalLoaded"));
   }
   onClose() {
     const { contentEl } = this;
@@ -685,51 +833,58 @@ var STTSettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Configura\xE7\xF5es do Speech to Text (API externa)" });
-    new import_obsidian.Setting(containerEl).setName("Endpoint STT (HTTP)").setDesc("URL que receber\xE1 o \xE1udio e retornar\xE1 o texto.").addText(
-      (text) => text.setPlaceholder("https://minha-api.stt/transcribe").setValue(this.plugin.settings.endpointUrl).onChange(async (value) => {
-        this.plugin.settings.endpointUrl = value.trim();
+    const t = this.plugin.t.bind(this.plugin);
+    containerEl.createEl("h2", { text: t("settingsTitle") });
+    new import_obsidian.Setting(containerEl).setName(t("settingUiLanguageName")).setDesc(t("settingUiLanguageDesc")).addDropdown(
+      (dropdown) => dropdown.addOption("system", t("settingUiOptionSystem")).addOption("en", t("settingUiOptionEn")).addOption("pt", t("settingUiOptionPt")).setValue(this.plugin.settings.uiLanguage).onChange(async (value) => {
+        this.plugin.settings.uiLanguage = value === "pt" || value === "system" ? value : "en";
         await this.plugin.saveSettings();
-        this.plugin.applyTuningSettings();
+        this.plugin.applyLanguage();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("API Key (opcional)").setDesc("Enviada como Authorization: Bearer <chave>.").addText(
-      (text) => text.setPlaceholder("chave-de-api").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName(t("settingEndpointName")).setDesc(t("settingEndpointDesc")).addText(
+      (text) => text.setPlaceholder("https://my-api.stt/transcribe").setValue(this.plugin.settings.endpointUrl).onChange(async (value) => {
+        this.plugin.settings.endpointUrl = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName(t("settingApiKeyName")).setDesc(t("settingApiKeyDesc")).addText(
+      (text) => text.setPlaceholder("api-key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
         this.plugin.settings.apiKey = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Modelo (ex.: whisper-large-v3)").setDesc("Algumas APIs exigem o campo model no corpo multipart.").addText(
+    new import_obsidian.Setting(containerEl).setName(t("settingModelName")).setDesc(t("settingModelDesc")).addText(
       (text) => text.setPlaceholder("whisper-large-v3").setValue(this.plugin.settings.model).onChange(async (value) => {
         this.plugin.settings.model = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Idioma (opcional)").setDesc("Campo language para o backend (ex.: pt, en).").addText(
+    new import_obsidian.Setting(containerEl).setName(t("settingLanguageName")).setDesc(t("settingLanguageDesc")).addText(
       (text) => text.setPlaceholder("pt").setValue(this.plugin.settings.language).onChange(async (value) => {
         this.plugin.settings.language = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Enviar como multipart/form-data").setDesc("Se desativado, envia o blob bin\xE1rio com Content-Type audio/wav.").addToggle(
+    new import_obsidian.Setting(containerEl).setName(t("settingFormDataName")).setDesc(t("settingFormDataDesc")).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.useFormData).onChange(async (value) => {
         this.plugin.settings.useFormData = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Campo do arquivo (form-data)").setDesc("Nome do campo multipart que receber\xE1 o \xE1udio.").addText(
+    new import_obsidian.Setting(containerEl).setName(t("settingFileFieldName")).setDesc(t("settingFileFieldDesc")).addText(
       (text) => text.setPlaceholder("file").setValue(this.plugin.settings.fileField).onChange(async (value) => {
         this.plugin.settings.fileField = value || "file";
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Campo do texto na resposta JSON").setDesc('Nome do campo com a transcri\xE7\xE3o (fallback para "transcript").').addText(
+    new import_obsidian.Setting(containerEl).setName(t("settingTextFieldName")).setDesc(t("settingTextFieldDesc")).addText(
       (text) => text.setPlaceholder("text").setValue(this.plugin.settings.textField).onChange(async (value) => {
         this.plugin.settings.textField = value || "text";
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Duracao do chunk (ms)").setDesc("Tempo de corte; valores menores enviam mais requisicoes. Padr\xE3o: 4000.").addText(
+    new import_obsidian.Setting(containerEl).setName(t("settingChunkName")).setDesc(t("settingChunkDesc")).addText(
       (text) => text.setPlaceholder("4000").setValue(String(this.plugin.settings.chunkMs)).onChange(async (value) => {
         const num = Number(value);
         this.plugin.settings.chunkMs = Number.isFinite(num) && num > 500 ? num : 4e3;
@@ -737,7 +892,7 @@ var STTSettingTab = class extends import_obsidian.PluginSettingTab {
         this.plugin.applyTuningSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Limite RMS de silencio").setDesc("Descarta chunks quase silenciosos; valores menores deixam passar mais ruido. Padr\xE3o: 0.0015.").addText(
+    new import_obsidian.Setting(containerEl).setName(t("settingSilenceName")).setDesc(t("settingSilenceDesc")).addText(
       (text) => text.setPlaceholder("0.0015").setValue(String(this.plugin.settings.silenceThreshold)).onChange(async (value) => {
         const num = Number(value);
         this.plugin.settings.silenceThreshold = Number.isFinite(num) && num >= 0 ? num : 15e-4;
@@ -745,7 +900,7 @@ var STTSettingTab = class extends import_obsidian.PluginSettingTab {
         this.plugin.applyTuningSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Buffers de audio em fila").setDesc("Limite de chunks aguardando envio antes de descartar o excesso (evita travar). Padr\xE3o: 12.").addText(
+    new import_obsidian.Setting(containerEl).setName(t("settingBufferName")).setDesc(t("settingBufferDesc")).addText(
       (text) => text.setPlaceholder("12").setValue(String(this.plugin.settings.maxBufferedChunks)).onChange(async (value) => {
         const num = Number(value);
         this.plugin.settings.maxBufferedChunks = Number.isFinite(num) && num > 0 ? Math.round(num) : 12;
@@ -753,7 +908,7 @@ var STTSettingTab = class extends import_obsidian.PluginSettingTab {
         this.plugin.applyTuningSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Repeticoes consecutivas permitidas").setDesc("Quantas vezes a mesma palavra pode se repetir em sequencia antes de ser filtrada. Padr\xE3o: 2.").addText(
+    new import_obsidian.Setting(containerEl).setName(t("settingRepeatsName")).setDesc(t("settingRepeatsDesc")).addText(
       (text) => text.setPlaceholder("2").setValue(String(this.plugin.settings.maxConsecutiveWordRepeats)).onChange(async (value) => {
         const num = Number(value);
         this.plugin.settings.maxConsecutiveWordRepeats = Number.isFinite(num) && num >= 1 ? Math.round(num) : 2;
