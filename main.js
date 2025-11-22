@@ -43,6 +43,8 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.sampleBuffers = [];
     this.samplesCollected = 0;
     this.targetSampleRate = 16e3;
+    // Small noise gate to avoid sending pure silence to the STT backend
+    this.silenceRmsThreshold = 15e-4;
     this.pendingControllers = [];
   }
   async onload() {
@@ -173,6 +175,9 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       this.samplesCollected += clone.length;
       while (this.samplesCollected >= samplesPerChunk) {
         const chunkSamples = this.takeSamples(samplesPerChunk);
+        if (this.isMostlySilence(chunkSamples)) {
+          continue;
+        }
         const wavBlob = this.encodeWav(chunkSamples, this.targetSampleRate);
         try {
           const transcript = await this.sendChunk(wavBlob, "audio/wav");
@@ -215,6 +220,20 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     }
     this.samplesCollected -= count;
     return out;
+  }
+  isMostlySilence(samples) {
+    if (samples.length === 0)
+      return true;
+    let sumSquares = 0;
+    let peak = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const value = samples[i];
+      const abs = Math.abs(value);
+      peak = Math.max(peak, abs);
+      sumSquares += value * value;
+    }
+    const rms = Math.sqrt(sumSquares / samples.length);
+    return rms < this.silenceRmsThreshold && peak < this.silenceRmsThreshold * 4;
   }
   encodeWav(samples, sampleRate) {
     const buffer = new ArrayBuffer(44 + samples.length * 2);
@@ -472,11 +491,53 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
     const audioSources = [];
     try {
       const sources = await desktopCapturer.getSources({ types: ["window", "screen"] });
-      sources.forEach((source) => {
-        if (source.name && !source.name.includes("Obsidian")) {
-          audioSources.push({ id: source.id, name: `Janela: ${source.name}` });
-        }
+      const audioKeywords = [
+        "chrome",
+        "edge",
+        "firefox",
+        "brave",
+        "opera",
+        "spotify",
+        "music",
+        "player",
+        "vlc",
+        "teams",
+        "zoom",
+        "meet",
+        "webex",
+        "skype",
+        "discord",
+        "youtube",
+        "netflix",
+        "prime video",
+        "hbo",
+        "disney",
+        "call",
+        "meeting",
+        "conference",
+        "stream"
+      ];
+      const looksAudioCapable = (name) => {
+        const lowered = name.toLowerCase();
+        return audioKeywords.some((kw) => lowered.includes(kw));
+      };
+      const filteredSources = sources.filter((source) => {
+        if (!source.name || source.name.includes("Obsidian"))
+          return false;
+        if (source.id.startsWith("screen:"))
+          return true;
+        return looksAudioCapable(source.name);
       });
+      filteredSources.forEach((source) => {
+        const labelPrefix = source.id.startsWith("screen:") ? "Tela" : "Janela";
+        audioSources.push({ id: source.id, name: `${labelPrefix}: ${source.name}` });
+      });
+      console.log(
+        "Speech-to-Text: Fontes de tela/janela filtradas",
+        filteredSources.length,
+        "de",
+        sources.length
+      );
     } catch (error) {
       console.error("Speech-to-Text: Erro ao buscar fontes do desktop:", error);
     }
