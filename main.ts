@@ -23,6 +23,7 @@ interface STTSettings {
     maxBufferedChunks: number;
     maxConsecutiveWordRepeats: number;
     uiLanguage: 'en' | 'pt' | 'system';
+    inactivityTimeoutMs: number;
 }
 
 type UILang = 'en' | 'pt';
@@ -84,6 +85,9 @@ const translations: Record<UILang, Record<string, string>> = {
         settingUiOptionSystem: 'System',
         settingUiOptionEn: 'English (en-US)',
         settingUiOptionPt: 'Portuguese (pt-BR)',
+        settingInactivityName: 'Auto-stop timeout (s)',
+        settingInactivityDesc: 'Stop capture if no audio is detected for longer than this (seconds). Set 0 to disable.',
+        inactivityStopNotice: 'Capture stopped because no audio was detected.',
     },
     pt: {
         ribbonStart: 'Iniciar transcri\u00e7\u00e3o',
@@ -141,6 +145,9 @@ const translations: Record<UILang, Record<string, string>> = {
         settingUiOptionSystem: 'Sistema',
         settingUiOptionEn: 'Ingl\u00eas (en-US)',
         settingUiOptionPt: 'Portugu\u00eas (pt-BR)',
+        settingInactivityName: 'Tempo para desligar (s)',
+        settingInactivityDesc: 'Desliga a captura se nenhum \u00e1udio for detectado por mais tempo que isso (segundos). Use 0 para desativar.',
+        inactivityStopNotice: 'Captura desligada por inatividade (sem \u00e1udio detectado).',
     },
 };
 
@@ -160,9 +167,11 @@ export default class SpeechToTextPlugin extends Plugin {
     maxConsecutiveWordRepeats = 2;
     currentLang: UILang = 'en';
     lastTranscriptTail = '';
+    lastAudioDetectedAt: number | null = null;
     // Small noise gate to avoid sending pure silence to the STT backend
     silenceRmsThreshold = 0.0015;
     pendingControllers: AbortController[] = [];
+    inactivityTimeoutId: number | null = null;
     settings!: STTSettings;
 
     async onload() {
@@ -249,7 +258,7 @@ export default class SpeechToTextPlugin extends Plugin {
         }
     }
 
-    stopTranscription() {
+    stopTranscription(showNotice = true) {
         if (!this.isTranscribing) return;
 
         if (this.audioProcessor) {
@@ -278,9 +287,13 @@ export default class SpeechToTextPlugin extends Plugin {
 
         this.pendingControllers.forEach((controller) => controller.abort());
         this.pendingControllers = [];
+        this.clearInactivityTimer();
+        this.lastAudioDetectedAt = null;
 
         this.isTranscribing = false;
-        new Notice('Transcrição interrompida.');
+        if (showNotice) {
+            new Notice(this.t('stopNotice'));
+        }
     }
 
     private async startPCMRecorder(stream: MediaStream) {
@@ -301,6 +314,8 @@ export default class SpeechToTextPlugin extends Plugin {
         let baseOffset: number | null = null;
         const editorGetter = () => this.app.workspace.activeEditor?.editor;
         const samplesPerChunk = Math.max(1, Math.round((this.targetSampleRate * this.settings.chunkMs) / 1000));
+        this.lastAudioDetectedAt = Date.now();
+        this.restartInactivityTimer();
 
         processor.onaudioprocess = async (event: AudioProcessingEvent) => {
             const channelData = event.inputBuffer.getChannelData(0);
@@ -314,7 +329,9 @@ export default class SpeechToTextPlugin extends Plugin {
 
             while (this.samplesCollected >= samplesPerChunk) {
                 const chunkSamples = this.takeSamples(samplesPerChunk);
-                if (this.isMostlySilence(chunkSamples)) {
+                const isSilent = this.isMostlySilence(chunkSamples);
+                this.handleInactivity(!isSilent);
+                if (isSilent) {
                     continue;
                 }
                 const wavBlob = this.encodeWav(chunkSamples, this.targetSampleRate);
@@ -464,6 +481,10 @@ export default class SpeechToTextPlugin extends Plugin {
             Number.isFinite(this.settings.maxConsecutiveWordRepeats) && this.settings.maxConsecutiveWordRepeats >= 1
                 ? Math.round(this.settings.maxConsecutiveWordRepeats)
                 : 2;
+        this.settings.inactivityTimeoutMs =
+            Number.isFinite(this.settings.inactivityTimeoutMs) && this.settings.inactivityTimeoutMs >= 0
+                ? Math.round(this.settings.inactivityTimeoutMs)
+                : 0;
     }
 
     private resolveLanguage(): UILang {
@@ -487,6 +508,36 @@ export default class SpeechToTextPlugin extends Plugin {
         } else {
             this.setRibbonTooltip(this.t('tooltipStart'));
             this.updateStatusBar(this.t('statusInactive'));
+        }
+    }
+
+    private handleInactivity(hasAudio: boolean) {
+        if (this.settings.inactivityTimeoutMs <= 0) return;
+        const now = Date.now();
+        if (hasAudio) {
+            this.lastAudioDetectedAt = now;
+            this.restartInactivityTimer();
+            return;
+        }
+        if (this.lastAudioDetectedAt === null) {
+            this.lastAudioDetectedAt = now;
+            this.restartInactivityTimer();
+        }
+    }
+
+    private restartInactivityTimer() {
+        this.clearInactivityTimer();
+        if (this.settings.inactivityTimeoutMs <= 0 || this.lastAudioDetectedAt === null) return;
+        this.inactivityTimeoutId = window.setTimeout(() => {
+            this.stopTranscription(false);
+            new Notice(this.t('inactivityStopNotice'));
+        }, this.settings.inactivityTimeoutMs);
+    }
+
+    private clearInactivityTimer() {
+        if (this.inactivityTimeoutId !== null) {
+            window.clearTimeout(this.inactivityTimeoutId);
+            this.inactivityTimeoutId = null;
         }
     }
 
@@ -635,11 +686,12 @@ export default class SpeechToTextPlugin extends Plugin {
             fileField: 'file',
             textField: 'text',
             chunkMs: 4000,
-            silenceThreshold: 0.0015,
-            maxBufferedChunks: 12,
-            maxConsecutiveWordRepeats: 2,
-            uiLanguage: 'en',
-        };
+        silenceThreshold: 0.0015,
+        maxBufferedChunks: 12,
+        maxConsecutiveWordRepeats: 2,
+        uiLanguage: 'en',
+        inactivityTimeoutMs: 0,
+    };
         const loaded = await this.loadData();
         return Object.assign({}, defaultSettings, loaded);
     }
@@ -1077,6 +1129,22 @@ class STTSettingTab extends PluginSettingTab {
                         const num = Number(value);
                         this.plugin.settings.maxBufferedChunks =
                             Number.isFinite(num) && num > 0 ? Math.round(num) : 12;
+                        await this.plugin.saveSettings();
+                        this.plugin.applyTuningSettings();
+                    })
+            );
+
+        new Setting(containerEl)
+            .setName(t('settingInactivityName'))
+            .setDesc(t('settingInactivityDesc'))
+            .addText((text) =>
+                text
+                    .setPlaceholder('0')
+                    .setValue(String(this.plugin.settings.inactivityTimeoutMs / 1000))
+                    .onChange(async (value) => {
+                        const numSeconds = Number(value);
+                        this.plugin.settings.inactivityTimeoutMs =
+                            Number.isFinite(numSeconds) && numSeconds >= 0 ? Math.round(numSeconds * 1000) : 0;
                         await this.plugin.saveSettings();
                         this.plugin.applyTuningSettings();
                     })

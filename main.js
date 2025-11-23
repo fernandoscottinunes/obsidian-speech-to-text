@@ -85,7 +85,10 @@ var translations = {
     settingUiLanguageDesc: "UI language. System follows Obsidian language when supported.",
     settingUiOptionSystem: "System",
     settingUiOptionEn: "English (en-US)",
-    settingUiOptionPt: "Portuguese (pt-BR)"
+    settingUiOptionPt: "Portuguese (pt-BR)",
+    settingInactivityName: "Auto-stop timeout (s)",
+    settingInactivityDesc: "Stop capture if no audio is detected for longer than this (seconds). Set 0 to disable.",
+    inactivityStopNotice: "Capture stopped because no audio was detected."
   },
   pt: {
     ribbonStart: "Iniciar transcri\xE7\xE3o",
@@ -142,7 +145,10 @@ var translations = {
     settingUiLanguageDesc: "Idioma da interface. Sistema segue o idioma do Obsidian quando suportado.",
     settingUiOptionSystem: "Sistema",
     settingUiOptionEn: "Ingl\xEAs (en-US)",
-    settingUiOptionPt: "Portugu\xEAs (pt-BR)"
+    settingUiOptionPt: "Portugu\xEAs (pt-BR)",
+    settingInactivityName: "Tempo para desligar (s)",
+    settingInactivityDesc: "Desliga a captura se nenhum \xE1udio for detectado por mais tempo que isso (segundos). Use 0 para desativar.",
+    inactivityStopNotice: "Captura desligada por inatividade (sem \xE1udio detectado)."
   }
 };
 var SpeechToTextPlugin = class extends import_obsidian.Plugin {
@@ -163,9 +169,11 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.maxConsecutiveWordRepeats = 2;
     this.currentLang = "en";
     this.lastTranscriptTail = "";
+    this.lastAudioDetectedAt = null;
     // Small noise gate to avoid sending pure silence to the STT backend
     this.silenceRmsThreshold = 15e-4;
     this.pendingControllers = [];
+    this.inactivityTimeoutId = null;
   }
   async onload() {
     var _a;
@@ -244,7 +252,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       this.stopTranscription();
     }
   }
-  stopTranscription() {
+  stopTranscription(showNotice = true) {
     if (!this.isTranscribing)
       return;
     if (this.audioProcessor) {
@@ -271,8 +279,12 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.lastTranscriptTail = "";
     this.pendingControllers.forEach((controller) => controller.abort());
     this.pendingControllers = [];
+    this.clearInactivityTimer();
+    this.lastAudioDetectedAt = null;
     this.isTranscribing = false;
-    new import_obsidian.Notice("Transcri\xE7\xE3o interrompida.");
+    if (showNotice) {
+      new import_obsidian.Notice(this.t("stopNotice"));
+    }
   }
   async startPCMRecorder(stream) {
     if (this.audioContext) {
@@ -291,6 +303,8 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       return (_a = this.app.workspace.activeEditor) == null ? void 0 : _a.editor;
     };
     const samplesPerChunk = Math.max(1, Math.round(this.targetSampleRate * this.settings.chunkMs / 1e3));
+    this.lastAudioDetectedAt = Date.now();
+    this.restartInactivityTimer();
     processor.onaudioprocess = async (event) => {
       const channelData = event.inputBuffer.getChannelData(0);
       const clone = new Float32Array(channelData.length);
@@ -300,7 +314,9 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       this.trimBacklog(samplesPerChunk);
       while (this.samplesCollected >= samplesPerChunk) {
         const chunkSamples = this.takeSamples(samplesPerChunk);
-        if (this.isMostlySilence(chunkSamples)) {
+        const isSilent = this.isMostlySilence(chunkSamples);
+        this.handleInactivity(!isSilent);
+        if (isSilent) {
           continue;
         }
         const wavBlob = this.encodeWav(chunkSamples, this.targetSampleRate);
@@ -423,6 +439,7 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.silenceRmsThreshold = Number.isFinite(this.settings.silenceThreshold) ? Math.max(0, this.settings.silenceThreshold) : 15e-4;
     this.maxBufferedChunks = Number.isFinite(this.settings.maxBufferedChunks) && this.settings.maxBufferedChunks > 0 ? Math.round(this.settings.maxBufferedChunks) : 12;
     this.maxConsecutiveWordRepeats = Number.isFinite(this.settings.maxConsecutiveWordRepeats) && this.settings.maxConsecutiveWordRepeats >= 1 ? Math.round(this.settings.maxConsecutiveWordRepeats) : 2;
+    this.settings.inactivityTimeoutMs = Number.isFinite(this.settings.inactivityTimeoutMs) && this.settings.inactivityTimeoutMs >= 0 ? Math.round(this.settings.inactivityTimeoutMs) : 0;
   }
   resolveLanguage() {
     var _a, _b, _c, _d, _e, _f, _g, _h;
@@ -442,6 +459,35 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     } else {
       this.setRibbonTooltip(this.t("tooltipStart"));
       this.updateStatusBar(this.t("statusInactive"));
+    }
+  }
+  handleInactivity(hasAudio) {
+    if (this.settings.inactivityTimeoutMs <= 0)
+      return;
+    const now = Date.now();
+    if (hasAudio) {
+      this.lastAudioDetectedAt = now;
+      this.restartInactivityTimer();
+      return;
+    }
+    if (this.lastAudioDetectedAt === null) {
+      this.lastAudioDetectedAt = now;
+      this.restartInactivityTimer();
+    }
+  }
+  restartInactivityTimer() {
+    this.clearInactivityTimer();
+    if (this.settings.inactivityTimeoutMs <= 0 || this.lastAudioDetectedAt === null)
+      return;
+    this.inactivityTimeoutId = window.setTimeout(() => {
+      this.stopTranscription(false);
+      new import_obsidian.Notice(this.t("inactivityStopNotice"));
+    }, this.settings.inactivityTimeoutMs);
+  }
+  clearInactivityTimer() {
+    if (this.inactivityTimeoutId !== null) {
+      window.clearTimeout(this.inactivityTimeoutId);
+      this.inactivityTimeoutId = null;
     }
   }
   t(key, vars = {}) {
@@ -570,7 +616,8 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
       silenceThreshold: 15e-4,
       maxBufferedChunks: 12,
       maxConsecutiveWordRepeats: 2,
-      uiLanguage: "en"
+      uiLanguage: "en",
+      inactivityTimeoutMs: 0
     };
     const loaded = await this.loadData();
     return Object.assign({}, defaultSettings, loaded);
@@ -904,6 +951,14 @@ var STTSettingTab = class extends import_obsidian.PluginSettingTab {
       (text) => text.setPlaceholder("12").setValue(String(this.plugin.settings.maxBufferedChunks)).onChange(async (value) => {
         const num = Number(value);
         this.plugin.settings.maxBufferedChunks = Number.isFinite(num) && num > 0 ? Math.round(num) : 12;
+        await this.plugin.saveSettings();
+        this.plugin.applyTuningSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName(t("settingInactivityName")).setDesc(t("settingInactivityDesc")).addText(
+      (text) => text.setPlaceholder("0").setValue(String(this.plugin.settings.inactivityTimeoutMs / 1e3)).onChange(async (value) => {
+        const numSeconds = Number(value);
+        this.plugin.settings.inactivityTimeoutMs = Number.isFinite(numSeconds) && numSeconds >= 0 ? Math.round(numSeconds * 1e3) : 0;
         await this.plugin.saveSettings();
         this.plugin.applyTuningSettings();
       })
