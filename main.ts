@@ -1,10 +1,5 @@
 import { App, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
-interface DesktopCapturerSource {
-    id: string;
-    name: string;
-}
-
 interface AudioSource {
     id: string;
     name: string;
@@ -47,16 +42,11 @@ const translations: Record<UILang, Record<string, string>> = {
         modalTitle: 'Select Audio Source',
         modalSourceLabel: 'Audio source',
         modalStatusScanning: 'Scanning system...',
-        modalHelp: 'Choose a window/screen or microphone to capture audio.',
+        modalHelp: 'Choose a hardware audio device (microphone, mixer, virtual cable).',
         modalStartButton: 'Start Transcription',
-        modalDesktopModuleError: 'Error: Could not load module for screen capture.',
-        modalDesktopLog: 'Speech-to-Text: Populating audio sources...',
-        modalDesktopError: 'Error fetching desktop sources.',
         modalDevicesError: 'Error fetching media devices.',
         modalNoSources: 'No audio sources found. Check permissions.',
         modalLoaded: 'Sources loaded',
-        sourcePrefixWindow: 'Window',
-        sourcePrefixScreen: 'Screen',
         settingsTitle: 'Speech to Text Settings (external API)',
         settingEndpointName: 'STT Endpoint (HTTP)',
         settingEndpointDesc: 'URL that will receive audio and return text.',
@@ -107,16 +97,11 @@ const translations: Record<UILang, Record<string, string>> = {
         modalTitle: 'Selecione a Fonte de \u00c1udio',
         modalSourceLabel: 'Fonte de \u00e1udio',
         modalStatusScanning: 'Varredura do sistema...',
-        modalHelp: 'Escolha uma janela/tela ou microfone para capturar o \u00e1udio.',
+        modalHelp: 'Escolha um dispositivo de \u00e1udio (microfone, mixer, cabo virtual).',
         modalStartButton: 'Iniciar Transcri\u00e7\u00e3o',
-        modalDesktopModuleError: 'Erro: N\u00e3o foi poss\u00edvel carregar o m\u00f3dulo para captura de tela.',
-        modalDesktopLog: 'Speech-to-Text: Populando fontes de \u00e1udio...',
-        modalDesktopError: 'Erro ao buscar fontes do desktop.',
         modalDevicesError: 'Erro ao buscar dispositivos de m\u00eddia.',
         modalNoSources: 'Nenhuma fonte de \u00e1udio encontrada. Verifique permiss\u00f5es.',
         modalLoaded: 'Fontes carregadas',
-        sourcePrefixWindow: 'Janela',
-        sourcePrefixScreen: 'Tela',
         settingsTitle: 'Configura\u00e7\u00f5es do Speech to Text (API externa)',
         settingEndpointName: 'Endpoint STT (HTTP)',
         settingEndpointDesc: 'URL que receber\u00e1 o \u00e1udio e retornar\u00e1 o texto.',
@@ -220,27 +205,10 @@ export default class SpeechToTextPlugin extends Plugin {
         try {
             let stream: MediaStream;
 
-            if (source.id.startsWith('window:') || source.id.startsWith('screen:')) {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        mandatory: {
-                            chromeMediaSource: 'desktop',
-                            chromeMediaSourceId: source.id,
-                        },
-                    } as any,
-                    video: {
-                        mandatory: {
-                            chromeMediaSource: 'desktop',
-                            chromeMediaSourceId: source.id,
-                        },
-                    } as any,
-                });
-            } else {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    audio: { deviceId: { exact: source.id } },
-                    video: false,
-                });
-            }
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: { exact: source.id } },
+                video: false,
+            });
 
             const audioTracks = stream.getAudioTracks();
             if (!audioTracks || audioTracks.length === 0) {
@@ -864,75 +832,7 @@ class AudioSourceSelectorModal extends Modal {
     }
 
     private async populateSources() {
-        console.log('Speech-to-Text: Populando fontes de áudio...');
-
-        const electron = window.require('electron');
-        const remote = (electron as any).remote;
-        if (!remote || !remote.desktopCapturer) {
-            console.error('Speech-to-Text: Módulo desktopCapturer do Electron não encontrado.');
-            this.statusText?.setText('Erro: Não foi possível carregar o módulo para captura de tela.');
-            return;
-        }
-
-        const { desktopCapturer } = remote;
         const audioSources: AudioSource[] = [];
-
-        try {
-            const sources: DesktopCapturerSource[] = await desktopCapturer.getSources({ types: ['window', 'screen'] });
-            const audioKeywords = [
-                'chrome',
-                'edge',
-                'firefox',
-                'brave',
-                'opera',
-                'spotify',
-                'music',
-                'player',
-                'vlc',
-                'teams',
-                'zoom',
-                'meet',
-                'webex',
-                'skype',
-                'discord',
-                'youtube',
-                'netflix',
-                'prime video',
-                'hbo',
-                'disney',
-                'call',
-                'meeting',
-                'conference',
-                'stream',
-            ];
-            const looksAudioCapable = (name: string) => {
-                const lowered = name.toLowerCase();
-                return audioKeywords.some((kw) => lowered.includes(kw));
-            };
-
-            const filteredSources = sources.filter((source) => {
-                if (!source.name || source.name.includes('Obsidian')) return false;
-                if (source.id.startsWith('screen:')) return true; // system audio is available
-                return looksAudioCapable(source.name);
-            });
-
-            filteredSources.forEach((source) => {
-                const labelPrefix = source.id.startsWith('screen:') ? this.plugin.t('sourcePrefixScreen') : this.plugin.t('sourcePrefixWindow');
-                audioSources.push({ id: source.id, name: `${labelPrefix}: ${source.name}` });
-            });
-
-            console.log(
-                'Speech-to-Text: Fontes de tela/janela filtradas',
-                filteredSources.length,
-                'de',
-                sources.length
-            );
-        } catch (error) {
-            console.error(this.plugin.t('modalDesktopError'), error);
-            this.statusText?.setText(this.plugin.t('modalDesktopError'));
-            this.statusText?.setText(this.plugin.t('modalDesktopError'));
-            this.statusText?.setText(this.plugin.t('modalDesktopError'));
-        }
 
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();

@@ -48,16 +48,11 @@ var translations = {
     modalTitle: "Select Audio Source",
     modalSourceLabel: "Audio source",
     modalStatusScanning: "Scanning system...",
-    modalHelp: "Choose a window/screen or microphone to capture audio.",
+    modalHelp: "Choose a hardware audio device (microphone, mixer, virtual cable).",
     modalStartButton: "Start Transcription",
-    modalDesktopModuleError: "Error: Could not load module for screen capture.",
-    modalDesktopLog: "Speech-to-Text: Populating audio sources...",
-    modalDesktopError: "Error fetching desktop sources.",
     modalDevicesError: "Error fetching media devices.",
     modalNoSources: "No audio sources found. Check permissions.",
     modalLoaded: "Sources loaded",
-    sourcePrefixWindow: "Window",
-    sourcePrefixScreen: "Screen",
     settingsTitle: "Speech to Text Settings (external API)",
     settingEndpointName: "STT Endpoint (HTTP)",
     settingEndpointDesc: "URL that will receive audio and return text.",
@@ -108,16 +103,11 @@ var translations = {
     modalTitle: "Selecione a Fonte de \xC1udio",
     modalSourceLabel: "Fonte de \xE1udio",
     modalStatusScanning: "Varredura do sistema...",
-    modalHelp: "Escolha uma janela/tela ou microfone para capturar o \xE1udio.",
+    modalHelp: "Escolha um dispositivo de \xE1udio (microfone, mixer, cabo virtual).",
     modalStartButton: "Iniciar Transcri\xE7\xE3o",
-    modalDesktopModuleError: "Erro: N\xE3o foi poss\xEDvel carregar o m\xF3dulo para captura de tela.",
-    modalDesktopLog: "Speech-to-Text: Populando fontes de \xE1udio...",
-    modalDesktopError: "Erro ao buscar fontes do desktop.",
     modalDevicesError: "Erro ao buscar dispositivos de m\xEDdia.",
     modalNoSources: "Nenhuma fonte de \xE1udio encontrada. Verifique permiss\xF5es.",
     modalLoaded: "Fontes carregadas",
-    sourcePrefixWindow: "Janela",
-    sourcePrefixScreen: "Tela",
     settingsTitle: "Configura\xE7\xF5es do Speech to Text (API externa)",
     settingEndpointName: "Endpoint STT (HTTP)",
     settingEndpointDesc: "URL que receber\xE1 o \xE1udio e retornar\xE1 o texto.",
@@ -217,27 +207,10 @@ var SpeechToTextPlugin = class extends import_obsidian.Plugin {
     this.lastTranscriptTail = "";
     try {
       let stream;
-      if (source.id.startsWith("window:") || source.id.startsWith("screen:")) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            mandatory: {
-              chromeMediaSource: "desktop",
-              chromeMediaSourceId: source.id
-            }
-          },
-          video: {
-            mandatory: {
-              chromeMediaSource: "desktop",
-              chromeMediaSourceId: source.id
-            }
-          }
-        });
-      } else {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: source.id } },
-          video: false
-        });
-      }
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: source.id } },
+        video: false
+      });
       const audioTracks = stream.getAudioTracks();
       if (!audioTracks || audioTracks.length === 0) {
         throw new Error(this.t("noTracks"));
@@ -774,72 +747,8 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
     await this.populateSources();
   }
   async populateSources() {
-    var _a, _b, _c, _d, _e, _f;
-    console.log("Speech-to-Text: Populando fontes de \xE1udio...");
-    const electron = window.require("electron");
-    const remote = electron.remote;
-    if (!remote || !remote.desktopCapturer) {
-      console.error("Speech-to-Text: M\xF3dulo desktopCapturer do Electron n\xE3o encontrado.");
-      (_a = this.statusText) == null ? void 0 : _a.setText("Erro: N\xE3o foi poss\xEDvel carregar o m\xF3dulo para captura de tela.");
-      return;
-    }
-    const { desktopCapturer } = remote;
+    var _a, _b;
     const audioSources = [];
-    try {
-      const sources = await desktopCapturer.getSources({ types: ["window", "screen"] });
-      const audioKeywords = [
-        "chrome",
-        "edge",
-        "firefox",
-        "brave",
-        "opera",
-        "spotify",
-        "music",
-        "player",
-        "vlc",
-        "teams",
-        "zoom",
-        "meet",
-        "webex",
-        "skype",
-        "discord",
-        "youtube",
-        "netflix",
-        "prime video",
-        "hbo",
-        "disney",
-        "call",
-        "meeting",
-        "conference",
-        "stream"
-      ];
-      const looksAudioCapable = (name) => {
-        const lowered = name.toLowerCase();
-        return audioKeywords.some((kw) => lowered.includes(kw));
-      };
-      const filteredSources = sources.filter((source) => {
-        if (!source.name || source.name.includes("Obsidian"))
-          return false;
-        if (source.id.startsWith("screen:"))
-          return true;
-        return looksAudioCapable(source.name);
-      });
-      filteredSources.forEach((source) => {
-        const labelPrefix = source.id.startsWith("screen:") ? this.plugin.t("sourcePrefixScreen") : this.plugin.t("sourcePrefixWindow");
-        audioSources.push({ id: source.id, name: `${labelPrefix}: ${source.name}` });
-      });
-      console.log(
-        "Speech-to-Text: Fontes de tela/janela filtradas",
-        filteredSources.length,
-        "de",
-        sources.length
-      );
-    } catch (error) {
-      console.error(this.plugin.t("modalDesktopError"), error);
-      (_b = this.statusText) == null ? void 0 : _b.setText(this.plugin.t("modalDesktopError"));
-      (_c = this.statusText) == null ? void 0 : _c.setText(this.plugin.t("modalDesktopError"));
-      (_d = this.statusText) == null ? void 0 : _d.setText(this.plugin.t("modalDesktopError"));
-    }
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const audioInputs = devices.filter((device) => device.kind === "audioinput");
@@ -851,7 +760,7 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
     }
     this.sources = audioSources;
     if (audioSources.length === 0) {
-      (_e = this.statusText) == null ? void 0 : _e.setText("Nenhuma fonte de \xE1udio encontrada. Verifique permiss\xF5es.");
+      (_a = this.statusText) == null ? void 0 : _a.setText("Nenhuma fonte de \xE1udio encontrada. Verifique permiss\xF5es.");
       return;
     }
     if (this.selectEl) {
@@ -865,7 +774,7 @@ var AudioSourceSelectorModal = class extends import_obsidian.Modal {
     if (this.startButton) {
       this.startButton.disabled = false;
     }
-    (_f = this.statusText) == null ? void 0 : _f.setText(this.plugin.t("modalLoaded"));
+    (_b = this.statusText) == null ? void 0 : _b.setText(this.plugin.t("modalLoaded"));
   }
   onClose() {
     const { contentEl } = this;
