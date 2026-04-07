@@ -412,24 +412,32 @@ export default class SpeechToTextPlugin extends Plugin {
         if (!incoming) return incoming;
 
         const normalizedIncoming = incoming.trimStart();
+        let result = '';
         if (!previousTail) {
-            return this.dedupeConsecutiveWords(normalizedIncoming);
-        }
+            result = this.dedupeConsecutiveWords(normalizedIncoming);
+        } else {
+            const prevWords = previousTail.trim().split(/\s+/);
+            const nextWords = normalizedIncoming.split(/\s+/);
+            const maxOverlap = Math.min(6, prevWords.length, nextWords.length);
 
-        const prevWords = previousTail.trim().split(/\s+/);
-        const nextWords = normalizedIncoming.split(/\s+/);
-        const maxOverlap = Math.min(6, prevWords.length, nextWords.length);
+            let found = false;
+            for (let overlap = maxOverlap; overlap > 0; overlap--) {
+                const tailPhrase = prevWords.slice(-overlap).join(' ').toLowerCase();
+                const headPhrase = nextWords.slice(0, overlap).join(' ').toLowerCase();
+                if (tailPhrase === headPhrase) {
+                    const remainder = nextWords.slice(overlap).join(' ');
+                    result = this.dedupeConsecutiveWords(remainder);
+                    found = true;
+                    break;
+                }
+            }
 
-        for (let overlap = maxOverlap; overlap > 0; overlap--) {
-            const tailPhrase = prevWords.slice(-overlap).join(' ').toLowerCase();
-            const headPhrase = nextWords.slice(0, overlap).join(' ').toLowerCase();
-            if (tailPhrase === headPhrase) {
-                const remainder = nextWords.slice(overlap).join(' ');
-                return this.dedupeConsecutiveWords(remainder);
+            if (!found) {
+                result = this.dedupeConsecutiveWords(normalizedIncoming);
             }
         }
 
-        return this.dedupeConsecutiveWords(normalizedIncoming);
+        return result ? result + ' ' : result;
     }
 
     private updateTail(previousTail: string, appended: string): string {
